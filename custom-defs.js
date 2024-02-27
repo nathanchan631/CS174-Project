@@ -3,6 +3,7 @@ const {vec3, vec4, vec, color, Matrix, Mat4, Light, Shape, Material, Shader, Tex
 const {Cube, Axis_Arrows, Textured_Phong, Phong_Shader, Basic_Shader, Subdivision_Sphere} = defs
 
 
+// Taken from https://github.com/Robert-Lu/tiny-graphics-shadow_demo
 // 2D shape, to display the texture buffer
 export class Square extends tiny.Vertex_Buffer {
     constructor() {
@@ -88,6 +89,22 @@ export class Texture_Shader_2D extends Shader {
 }
 
 
+export class Image_Shader_2D extends Texture_Shader_2D {
+    update_GPU(context, gpu_addresses, gpu_state, model_transform, material) {
+        // update_GPU(): Add a little more to the base class's version of this method.
+
+        this.send_gpu_state(context, gpu_addresses, gpu_state, model_transform);
+
+        // set up texture 3, the background texture
+        context.uniform1i(gpu_addresses.texture, 3);
+        context.activeTexture(context["TEXTURE" + 3]);
+        material.texture.activate(context, 3);
+        // context.bindTexture(context.TEXTURE_2D, material.texture);
+    }
+}
+
+
+
 export class Blend_Texture_Shader_2D extends Texture_Shader_2D {
 
     fragment_glsl_code() {
@@ -97,9 +114,14 @@ export class Blend_Texture_Shader_2D extends Texture_Shader_2D {
         return this.shared_glsl_code() + `
             uniform sampler2D non_blurred_tex;
             uniform sampler2D blurred_tex;
+            uniform sampler2D background_tex;
 
             void main(){
                 vec3 sceneColor = texture2D( non_blurred_tex, f_tex_coord ).xyz;
+                if ( sceneColor == vec3(0.0, 0.0, 0.0) ) {
+                    sceneColor = texture2D( background_tex, f_tex_coord ).xyz;
+                }
+
                 vec3 bloomColor = texture2D( blurred_tex, f_tex_coord ).xyz;
                 
                 gl_FragColor = vec4( sceneColor + bloomColor, 1.0 );
@@ -120,6 +142,11 @@ export class Blend_Texture_Shader_2D extends Texture_Shader_2D {
         context.uniform1i(gpu_addresses.blurred_tex, 1);
         context.activeTexture(context["TEXTURE" + 1]);
         context.bindTexture(context.TEXTURE_2D, material.blurred_tex);
+
+        // set up texture 3, the background texture
+        context.uniform1i(gpu_addresses.background_tex, 3);
+        context.activeTexture(context["TEXTURE" + 3]);
+        context.bindTexture(context.TEXTURE_2D, material.background_tex);
     }
 }
 
@@ -264,65 +291,5 @@ export class Luminscent_Shader extends Shader {
         context.uniform1f(gpu_addresses.shininess, material.shininess);
         context.uniform1f(gpu_addresses.u_glow, material.glow);
         this.send_gpu_state(context, gpu_addresses, gpu_state, model_transform);
-    }
-}
-
-
-// Taken from https://github.com/Robert-Lu/tiny-graphics-shadow_demo
-export class Buffered_Texture extends tiny.Graphics_Card_Object {
-    // **Texture** wraps a pointer to a new texture image where
-    // it is stored in GPU memory, along with a new HTML image object.
-    // This class initially copies the image to the GPU buffers,
-    // optionally generating mip maps of it and storing them there too.
-    constructor(texture_buffer_pointer) {
-        super();
-        Object.assign(this, {texture_buffer_pointer});
-        this.ready = true;
-        this.texture_buffer_pointer = texture_buffer_pointer;
-    }
-
-    copy_onto_graphics_card(context, need_initial_settings = true) {
-        // copy_onto_graphics_card():  Called automatically as needed to load the
-        // texture image onto one of your GPU contexts for its first time.
-
-        // Define what this object should store in each new WebGL Context:
-        const initial_gpu_representation = {texture_buffer_pointer: undefined};
-        // Our object might need to register to multiple GPU contexts in the case of
-        // multiple drawing areas.  If this is a new GPU context for this object,
-        // copy the object to the GPU.  Otherwise, this object already has been
-        // copied over, so get a pointer to the existing instance.
-        const gpu_instance = super.copy_onto_graphics_card(context, initial_gpu_representation);
-
-        if (!gpu_instance.texture_buffer_pointer) gpu_instance.texture_buffer_pointer = this.texture_buffer_pointer;
-
-        // const gl = context;
-        // gl.bindTexture(gl.TEXTURE_2D, gpu_instance.texture_buffer_pointer);
-        //
-        // if (need_initial_settings) {
-        //     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-        //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        //     // Always use bi-linear sampling when zoomed out.
-        //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl[this.min_filter]);
-        //     // Let the user to set the sampling method
-        //     // when zoomed in.
-        // }
-        //
-        // gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.image);
-        // if (this.min_filter == "LINEAR_MIPMAP_LINEAR")
-        //     gl.generateMipmap(gl.TEXTURE_2D);
-        // // If the user picked tri-linear sampling (the default) then generate
-        // // the necessary "mips" of the texture and store them on the GPU with it.
-        return gpu_instance;
-    }
-
-    activate(context, texture_unit = 0) {
-        // activate(): Selects this Texture in GPU memory so the next shape draws using it.
-        // Optionally select a texture unit in case you're using a shader with many samplers.
-        // Terminate draw requests until the image file is actually loaded over the network:
-        if (!this.ready)
-            return;
-        const gpu_instance = super.activate(context);
-        context.activeTexture(context["TEXTURE" + texture_unit]);
-        context.bindTexture(context.TEXTURE_2D, this.texture_buffer_pointer);
     }
 }

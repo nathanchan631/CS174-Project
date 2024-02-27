@@ -12,12 +12,14 @@ TODO: https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
 import {defs, tiny} from './examples/common.js';
 
 const {
-    Vector, Vector3, vec, vec3, vec4, color, hex_color, Shader, Matrix, Mat4, Light, Shape, Material, Scene,
+    Vector, Vector3, vec, vec3, vec4, color, hex_color, Shader, Matrix, Mat4, Light, Shape, Material, Texture, Scene,
 } = tiny;
 
 import {
-    Square, Buffered_Texture, Luminscent_Shader, Blend_Texture_Shader_2D, Texture_Shader_2D, Blur_Texture_Shader_2D
+    Square, Luminscent_Shader, Texture_Shader_2D, Image_Shader_2D, Blend_Texture_Shader_2D, Blur_Texture_Shader_2D
 } from './custom-defs.js'
+
+import { Buffered_Texture } from './examples/shadow-demo-shaders.js'
 
 
 const TEXTURE_BUFFER_SIZE = 2048;
@@ -33,17 +35,16 @@ export class Project extends Scene {
         };
 
         this.materials = {
-            blur_tex: new Material(new Blur_Texture_Shader_2D(), {
-                horizontal: true
+            background: new Material(new Image_Shader_2D(), {
+                texture: new Texture("assets/stars-galaxy.jpg")
             }),
-    
-            display_tex: new Material(new Texture_Shader_2D(), {
-                texture: null
-            }),
+
+            blur_tex: new Material(new Blur_Texture_Shader_2D()),
     
             blend_tex: new Material(new Blend_Texture_Shader_2D(), {
                 blurred_tex: null,
-                non_blurred_tex: null
+                non_blurred_tex: null,
+                background_tex: null
             }),
     
             ball: new Material(new Luminscent_Shader(), {
@@ -60,13 +61,15 @@ export class Project extends Scene {
             })
         }
 
-        this.camera_location = Mat4.look_at(vec3(0, 0, 50), vec3(0, 0, 0), vec3(0, 1, 0));
+        this.player_transform = Mat4.translation(0, 5, 0);
         this.screen_transform = Mat4.translation(-1,-1,0).times(Mat4.scale(2,2,1));
+        this.camera_location = Mat4.look_at(vec3(0, 0, 50), vec3(0, 0, 0), vec3(0, 1, 0));
 
         // To make sure texture initialization only does once
         this.init_ok = false;
     }
 
+    // TODO: add a panel for jump
     make_control_panel() {
         // Draw the scene's buttons, setup their actions and keyboard shortcuts, and monitor live measurements.
     }
@@ -82,8 +85,8 @@ export class Project extends Scene {
         this.framebuffers = [];
         this.texture_size = TEXTURE_BUFFER_SIZE;
 
-        // 0 is for non blurred, 1 and 2 are for blurring
-        for (let i = 0; i < 3; i++) {
+        // 0 is for non blurred, 1 and 2 are for blurring, 3 is for background
+        for (let i = 0; i < 4; i++) {
 
             // Framebuffer
             let fb = gl.createFramebuffer();
@@ -120,11 +123,16 @@ export class Project extends Scene {
         }
     }
 
+    // render the background. Possible alternative: create a canvas under the tiny graphics one, make the tiny graphics one transparent
+    render_background(context, program_state) {
+        this.shapes.screen.draw(context, program_state, this.screen_transform, this.materials.background);
+    }
 
     // anything here will not be blurred
     render_scene_normal(context, program_state) {
-        let ballT = Mat4.translation(0, 5, 0);
-        this.shapes.sphere.draw(context, program_state, ballT, this.materials.ball);
+
+        // Draw the objects
+        this.shapes.sphere.draw(context, program_state, this.player_transform, this.materials.ball);
 
         let ballT2 = Mat4.translation(0, -5, 0);
         this.shapes.sphere.draw(context, program_state, ballT2, this.materials.ball2); 
@@ -132,8 +140,7 @@ export class Project extends Scene {
 
     // render stuff to be blurred
     render_scene_blur(context, program_state) {
-        let ballT = Mat4.translation(0, 5, 0);
-        this.shapes.sphere.draw(context, program_state, ballT, this.materials.ball);
+        this.shapes.sphere.draw(context, program_state, this.player_transform, this.materials.ball);
     }
 
 
@@ -147,9 +154,9 @@ export class Project extends Scene {
             this.init_ok = true;
         }
         
-        // TODO: only include space to jump. maybe a pause feature too (just add some 2d squares)
+        // TODO: implement simulation with program state viewer
         if (!context.scratchpad.controls) {
-            this.children.push(context.scratchpad.controls = new defs.Movement_Controls());
+            this.children.push(context.scratchpad.controls = new defs.Program_State_Viewer());
         }
 
         // TODO: Camera follow the ball
@@ -172,10 +179,19 @@ export class Project extends Scene {
 
         // MULTIPASS RENDERING
 
+        // render background
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[3]);
+        gl.viewport(0, 0, this.texture_size, this.texture_size);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        this.render_background(context, program_state);
+
+
         // render all non blurred objects
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[0]);
         gl.viewport(0, 0, this.texture_size, this.texture_size);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        
         this.render_scene_normal(context, program_state);
 
 
@@ -217,7 +233,8 @@ export class Project extends Scene {
         this.shapes.screen.draw(context, program_state, this.screen_transform,
             this.materials.blend_tex.override({
                 non_blurred_tex: this.buffered_textures[0].texture_buffer_pointer,
-                blurred_tex: this.buffered_textures[1].texture_buffer_pointer
+                blurred_tex: this.buffered_textures[1].texture_buffer_pointer,
+                background_tex: this.buffered_textures[3].texture_buffer_pointer
             })
         )
     }
