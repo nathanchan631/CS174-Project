@@ -30,8 +30,9 @@ export class Project extends Scene {
         super();
 
         this.shapes = {
+            square: new Square(),
             sphere: new defs.Subdivision_Sphere(6),
-            screen: new Square()
+            cube: new defs.Cube()
         };
 
         this.materials = {
@@ -53,19 +54,21 @@ export class Project extends Scene {
                 glow: 3.0
             }),
     
-            ball2: new Material(new defs.Phong_Shader(), {
-                color: color(0,1,0,1),
+            ground: new Material(new defs.Phong_Shader(), {
+                color: color(.2,.2,.2,1),
                 ambient: 0.2,
                 diffusivity: 0.6,
                 specularity: 0.6
             })
         }
 
-        this.player_transform = Mat4.translation(0, 5, 0);
         this.screen_transform = Mat4.translation(-1,-1,0).times(Mat4.scale(2,2,1));
-        this.camera_location = Mat4.look_at(vec3(0, 0, 50), vec3(0, 0, 0), vec3(0, 1, 0));
+        this.camera_location = Mat4.look_at(vec3(0, 3, -15), vec3(0, -1, 20), vec3(0, 1, 0));
 
-        // To make sure texture initialization only does once
+        this.player_transform = Mat4.scale(0.65,0.65,0.65);
+        this.ground_transform = Mat4.translation(0,-5,75).times(Mat4.scale(8,1,80));
+
+        // To make sure texture initialization only happens once
         this.init_ok = false;
     }
 
@@ -125,17 +128,14 @@ export class Project extends Scene {
 
     // render the background. Possible alternative: create a canvas under the tiny graphics one, make the tiny graphics one transparent
     render_background(context, program_state) {
-        this.shapes.screen.draw(context, program_state, this.screen_transform, this.materials.background);
+        this.shapes.square.draw(context, program_state, this.screen_transform, this.materials.background);
     }
 
     // anything here will not be blurred
+    // IMPORTANT: Anything black will be clipped out. If you want, black, use color(.01,.01,.01,1) or something
     render_scene_normal(context, program_state) {
-
-        // Draw the objects
         this.shapes.sphere.draw(context, program_state, this.player_transform, this.materials.ball);
-
-        let ballT2 = Mat4.translation(0, -5, 0);
-        this.shapes.sphere.draw(context, program_state, ballT2, this.materials.ball2); 
+        this.shapes.cube.draw(context, program_state, this.ground_transform, this.materials.ground);
     }
 
     // render stuff to be blurred
@@ -164,14 +164,9 @@ export class Project extends Scene {
 
 
         // lights. TODO: change light position and color - maybe white centered on the ball?
-        this.light_position = Mat4.rotation(t / 1000, 0, 1, 0).times(vec4(3, 6, 0, 1));
-        this.light_color = color(
-            0.667 + Math.sin(t/400) / 3,
-            0.667 + Math.sin(t/1200) / 3,
-            0.667 + Math.sin(t/3000) / 3,
-            1
-        );
-        this.light_view_target = vec4(0, 0, 0, 1);
+        this.light_position = vec4(0,0,0,1);
+        this.light_color = color(1,1,1,1);
+        this.light_view_target = this.player_transform;
         this.light_field_of_view = 130 * Math.PI / 180; // 130 degrees
 
         program_state.lights = [new Light(this.light_position, this.light_color, 1000)];
@@ -186,7 +181,9 @@ export class Project extends Scene {
 
         this.render_background(context, program_state);
 
-
+        // TODO: For a platform glow, could find all black pixels that are close to a non black pixel
+        // http://geoffprewett.com/blog/software/opengl-outline/
+        
         // render all non blurred objects
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[0]);
         gl.viewport(0, 0, this.texture_size, this.texture_size);
@@ -210,7 +207,7 @@ export class Project extends Scene {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         // display textures
-        this.shapes.screen.draw(context, program_state, this.screen_transform,
+        this.shapes.square.draw(context, program_state, this.screen_transform,
             this.materials.blur_tex.override({texture: this.buffered_textures[1].texture_buffer_pointer, horizontal: true})
         );
 
@@ -219,7 +216,7 @@ export class Project extends Scene {
         gl.viewport(0, 0, this.texture_size, this.texture_size);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        this.shapes.screen.draw(context, program_state, this.screen_transform,
+        this.shapes.square.draw(context, program_state, this.screen_transform,
             this.materials.blur_tex.override({texture: this.buffered_textures[2].texture_buffer_pointer, horizontal: false})
         );
 
@@ -230,7 +227,7 @@ export class Project extends Scene {
         program_state.view_mat = program_state.camera_inverse;
         program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, 0.5, 500);
 
-        this.shapes.screen.draw(context, program_state, this.screen_transform,
+        this.shapes.square.draw(context, program_state, this.screen_transform,
             this.materials.blend_tex.override({
                 non_blurred_tex: this.buffered_textures[0].texture_buffer_pointer,
                 blurred_tex: this.buffered_textures[1].texture_buffer_pointer,
