@@ -16,23 +16,101 @@ const {
 } = tiny;
 
 import {
-    Square, Luminscent_Shader, Texture_Shader_2D, Image_Shader_2D, Blend_Texture_Shader_2D, Blur_Texture_Shader_2D
+    Luminscent_Shader, Texture_Shader_2D, Image_Shader_2D, Blend_Texture_Shader_2D, Blur_Texture_Shader_2D
 } from './custom-defs.js'
 
 import { Buffered_Texture } from './examples/shadow-demo-shaders.js'
-import { Simulation, Test_Data, Body } from './collisions-demo.js';
+import { Body } from './examples/collisions-demo.js';
 
 
 const TEXTURE_BUFFER_SIZE = 2048;
 
 
-export class Project extends Scene {
+export class Simulation extends Scene {
+    // **Simulation** manages the stepping of simulation time.  Subclass it when making
+    // a Scene that is a physics demo.  This technique is careful to totally decouple
+    // the simulation from the frame rate (see below).
+    constructor() {
+        super();
+        Object.assign(this, {time_accumulator: 0, time_scale: 1, t: 0, dt: 1 / 100, user_sphere: [], steps_taken: 0});
+    }
+
+    simulate(frame_time) {
+        // simulate(): Carefully advance time according to Glenn Fiedler's
+        // "Fix Your Timestep" blog post.
+        // This line gives ourselves a way to trick the simulator into thinking
+        // that the display framerate is running fast or slow:
+        frame_time = this.time_scale * frame_time;
+
+        // Avoid the spiral of death; limit the amount of time we will spend
+        // computing during this timestep if display lags:
+        this.time_accumulator += Math.min(frame_time, 0.1);
+        // Repeatedly step the simulation until we're caught up with this frame:
+        while (Math.abs(this.time_accumulator) >= this.dt) {
+            // Single step of the simulation for all bodies:
+            this.update_state(this.dt);
+            for (let b of this.user_sphere)
+                b.advance(this.dt);
+            // Following the advice of the article, de-couple
+            // our simulation time from our frame rate:
+            this.t += Math.sign(frame_time) * this.dt;
+            this.time_accumulator -= Math.sign(frame_time) * this.dt;
+            this.steps_taken++;
+        }
+        // Store an interpolation factor for how close our frame fell in between
+        // the two latest simulation time steps, so we can correctly blend the
+        // two latest states and display the result.
+        let alpha = this.time_accumulator / this.dt;
+        for (let b of this.user_sphere) b.blend_state(alpha);
+    }
+
+    make_control_panel() {
+        // make_control_panel(): Create the buttons for interacting with simulation time.
+        this.key_triggered_button("Speed up time", ["Shift", "T"], () => this.time_scale *= 5);
+        this.key_triggered_button("Slow down time", ["t"], () => this.time_scale /= 5);
+        this.key_triggered_button("Jump", ["u"], () => this.jump = true);
+        this.key_triggered_button("Right", ["k"], () => this.right = true);
+        this.key_triggered_button("Left", ["j"], () => this.left = true);
+        this.key_triggered_button("Restart", ["r"], () => this.restart = true);
+        this.new_line();
+        this.live_string(box => {
+            box.textContent = "Time scale: " + this.time_scale
+        });
+        this.new_line();
+        this.live_string(box => {
+            box.textContent = "Fixed simulation time step size: " + this.dt
+        });
+        this.new_line();
+        this.live_string(box => {
+            box.textContent = this.steps_taken + " timesteps were taken so far."
+        });
+    }
+
+    display(context, program_state) {
+        // THE FOLLOWING CODE HAS BEEN COMMENTED OUT FROM THE ORIGINAL
+        // display(): advance the time and state of our whole simulation.
+        // if (program_state.animate)
+            // this.simulate(program_state.animation_delta_time);
+
+        // Draw each shape at its current location:
+        for (let b of this.user_sphere)
+            b.shape.draw(context, program_state, b.drawn_location, b.material);
+    }
+
+    update_state(dt)      // update_state(): Your subclass of Simulation has to override this abstract function.
+    {
+        throw "Override this"
+    }
+}
+
+
+export class Project extends Simulation {
     constructor() {
         super();
 
         this.shapes = {
             sphere: new defs.Subdivision_Sphere(6),
-            screen: new Square()
+            square: new defs.Square()
         };
 
         this.materials = {
@@ -52,27 +130,71 @@ export class Project extends Scene {
                 color: color(1, 0, 0, 1),
                 shininess: 2.0,
                 glow: 3.0
-            }),
-    
-            ball2: new Material(new defs.Phong_Shader(), {
-                color: color(0,1,0,1),
-                ambient: 0.2,
-                diffusivity: 0.6,
-                specularity: 0.6
             })
         }
 
         this.player_transform = Mat4.translation(0, 5, 0);
-        this.screen_transform = Mat4.translation(-1,-1,0).times(Mat4.scale(2,2,1));
+        this.screen_transform = Mat4.identity();
         this.camera_location = Mat4.look_at(vec3(0, 0, 50), vec3(0, 0, 0), vec3(0, 1, 0));
 
         // To make sure texture initialization only does once
         this.init_ok = false;
+
+        //movement
+        this.jump = false;
+        this.left = false;
+        this.right = false;
+
+        this.restart = false;
+
+        this.floor_y = 0;
     }
 
-    // TODO: add a panel for jump
-    make_control_panel() {
-        // Draw the scene's buttons, setup their actions and keyboard shortcuts, and monitor live measurements.
+    update_state(dt) {
+        // update_state():  Override the base time-stepping code to say what this particular
+        // scene should do to its bodies every frame -- including applying forces.
+        // Generate additional moving bodies if there ever aren't enough:
+        while(this.user_sphere.length < 1)
+            this.user_sphere.push(new Body(this.shapes.sphere, this.materials.ball, vec3(1, 1, 1))
+                .emplace(Mat4.translation(...vec3(0, 0, 0)), vec3(0, 0, 1), 0));
+                    
+
+        for (let b of this.user_sphere) {
+            // Gravity on Earth, where 1 unit in world space = 1 meter:
+            b.linear_velocity[0] = 0;
+
+            b.linear_velocity[2] = -1;
+            if (this.jump == true)
+            {
+                b.linear_velocity[1] = 10;
+                this.jump = false;
+            }
+
+            if (this.right == true)
+            {
+                b.linear_velocity[0] = 100;
+                this.right = false;
+            }
+            if (this.left == true)
+            {
+                b.linear_velocity[0] = -100;
+                this.left = false;
+            }
+            
+            
+            b.linear_velocity[1] += dt * -9.8;
+            // If about to fall through floor, reverse y velocity:
+            if (b.center[1] < this.floor_y && b.linear_velocity[1] < 0)
+                b.linear_velocity[1] = 0;
+
+        }
+        
+        // Delete bodies that stop or stray too far away:
+        if (this.restart)
+        {
+            this.user_sphere = this.user_sphere.filter(b => b.center.norm() < 0);
+            this.restart = false;
+        }
     }
 
 
@@ -126,22 +248,19 @@ export class Project extends Scene {
 
     // render the background. Possible alternative: create a canvas under the tiny graphics one, make the tiny graphics one transparent
     render_background(context, program_state) {
-        this.shapes.screen.draw(context, program_state, this.screen_transform, this.materials.background);
+        this.shapes.square.draw(context, program_state, this.screen_transform, this.materials.background);
     }
 
     // anything here will not be blurred
     render_scene_normal(context, program_state) {
 
         // Draw the objects
-        this.shapes.sphere.draw(context, program_state, this.player_transform, this.materials.ball);
-
-        let ballT2 = Mat4.translation(0, -5, 0);
-        this.shapes.sphere.draw(context, program_state, ballT2, this.materials.ball2); 
+        super.display(context, program_state);
     }
 
     // render stuff to be blurred
     render_scene_blur(context, program_state) {
-        this.shapes.sphere.draw(context, program_state, this.player_transform, this.materials.ball);
+        super.display(context, program_state);
     }
 
 
@@ -177,6 +296,10 @@ export class Project extends Scene {
 
         program_state.lights = [new Light(this.light_position, this.light_color, 1000)];
 
+        // one simulation step
+        if (program_state.animate)
+            this.simulate(program_state.animation_delta_time);
+
 
         // MULTIPASS RENDERING
 
@@ -211,7 +334,7 @@ export class Project extends Scene {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         // display textures
-        this.shapes.screen.draw(context, program_state, this.screen_transform,
+        this.shapes.square.draw(context, program_state, this.screen_transform,
             this.materials.blur_tex.override({texture: this.buffered_textures[1].texture_buffer_pointer, horizontal: true})
         );
 
@@ -220,7 +343,7 @@ export class Project extends Scene {
         gl.viewport(0, 0, this.texture_size, this.texture_size);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        this.shapes.screen.draw(context, program_state, this.screen_transform,
+        this.shapes.square.draw(context, program_state, this.screen_transform,
             this.materials.blur_tex.override({texture: this.buffered_textures[2].texture_buffer_pointer, horizontal: false})
         );
 
@@ -231,110 +354,12 @@ export class Project extends Scene {
         program_state.view_mat = program_state.camera_inverse;
         program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, 0.5, 500);
 
-        this.shapes.screen.draw(context, program_state, this.screen_transform,
+        this.shapes.square.draw(context, program_state, this.screen_transform,
             this.materials.blend_tex.override({
                 non_blurred_tex: this.buffered_textures[0].texture_buffer_pointer,
                 blurred_tex: this.buffered_textures[1].texture_buffer_pointer,
                 background_tex: this.buffered_textures[3].texture_buffer_pointer
             })
         )
-    }
-}
-
-
-export class Inertia_Demo extends Simulation {
-    // ** Inertia_Demo** demonstration: This scene lets random initial momentums
-    // carry several bodies until they fall due to gravity and bounce.
-    constructor() {
-        super();
-        this.data = new Test_Data();
-        this.shapes = Object.assign({}, this.data.shapes);
-        this.shapes.square = new defs.Square();
-        const shader = new defs.Fake_Bump_Map(1);
-
-        //movement
-        this.jump = false;
-        this.left = false;
-        this.right = false;
-
-        this.restart = false;
-
-        this.material = new Material(shader, {
-            color: color(1, 1, 1, 1),
-            ambient: .5, texture: this.data.textures.black
-        })
-    }
-
-    chosen_color() {
-        //ball color
-        return this.material.override(color(10, 1, 1, 1));
-    }
-
-    update_state(dt) {
-        // update_state():  Override the base time-stepping code to say what this particular
-        // scene should do to its bodies every frame -- including applying forces.
-        // Generate additional moving bodies if there ever aren't enough:
-        while(this.user_sphere.length < 1)
-            this.user_sphere.push(new Body(this.shapes.sphere, this.chosen_color(), vec3(1, 1 , 1))
-                .emplace(Mat4.translation(...vec3(0, -8, 0)),
-                    vec3(0, 0, 0).randomized(10).normalized(), 1));
-                    
-
-        for (let b of this.user_sphere) {
-            // Gravity on Earth, where 1 unit in world space = 1 meter:
-            b.linear_velocity[0] = 0;
-
-            b.linear_velocity[2] = -1;
-            if (this.jump == true)
-            {
-                b.linear_velocity[1] = 10;
-                this.jump = false;
-            }
-
-            if (this.right == true)
-            {
-                b.linear_velocity[0] = 100;
-                this.right = false;
-            }
-            if (this.left == true)
-            {
-                b.linear_velocity[0] = 100;
-                this.left = false;
-            }
-            
-            
-            b.linear_velocity[1] += dt * -9.8;
-            // If about to fall through floor, reverse y velocity:
-            if (b.center[1] < -8 && b.linear_velocity[1] < 0)
-                b.linear_velocity[1] = 0;
-
-            
-
-        }
-        
-
-        // Delete bodies that stop or stray too far away:
-        if (this.restart)
-        {
-            this.user_sphere = this.user_sphere.filter(b => b.center.norm() < 0);
-            this.restart = false;
-        }
-    }
-
-    display(context, program_state) {
-        // display(): Draw everything else in the scene besides the moving bodies.
-        super.display(context, program_state);
-
-        if (!context.scratchpad.controls) {
-            this.children.push(context.scratchpad.controls = new defs.Movement_Controls());
-            this.children.push(new defs.Program_State_Viewer());
-            program_state.set_camera(Mat4.translation(0, 0, -50));    // Locate the camera here (inverted matrix).
-        }
-        program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, 1, 500);
-        program_state.lights = [new Light(vec4(0, -5, -10, 1), color(1, 1, 1, 1), 100000)];
-        // Draw the ground:
-        this.shapes.square.draw(context, program_state, Mat4.translation(0, -10, 0)
-                .times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(50, 50, 1)),
-            this.material.override(this.data.textures.black));
     }
 }

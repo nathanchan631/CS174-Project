@@ -3,27 +3,6 @@ const {vec3, vec4, vec, color, Matrix, Mat4, Light, Shape, Material, Shader, Tex
 const {Cube, Axis_Arrows, Textured_Phong, Phong_Shader, Basic_Shader, Subdivision_Sphere} = defs
 
 
-// Taken from https://github.com/Robert-Lu/tiny-graphics-shadow_demo
-// 2D shape, to display the texture buffer
-export class Square extends tiny.Vertex_Buffer {
-    constructor() {
-        super("position", "normal", "texture_coord");
-        this.arrays.position = [
-            vec3(0, 0, 0), vec3(1, 0, 0), vec3(0, 1, 0),
-            vec3(1, 1, 0), vec3(1, 0, 0), vec3(0, 1, 0)
-        ];
-        this.arrays.normal = [
-            vec3(0, 0, 1), vec3(0, 0, 1), vec3(0, 0, 1),
-            vec3(0, 0, 1), vec3(0, 0, 1), vec3(0, 0, 1),
-        ];
-        this.arrays.texture_coord = [
-            vec(0, 0), vec(1, 0), vec(0, 1),
-            vec(1, 1), vec(1, 0), vec(0, 1)
-        ]
-    }
-}
-
-
 export class Texture_Shader_2D extends Shader {
     shared_glsl_code() {
         // ********* SHARED CODE, INCLUDED IN BOTH SHADERS *********
