@@ -20,6 +20,7 @@ import {
 } from './custom-defs.js'
 
 import { Buffered_Texture } from './examples/shadow-demo-shaders.js'
+import { Simulation, Test_Data, Body } from './collisions-demo.js';
 
 
 const TEXTURE_BUFFER_SIZE = 2048;
@@ -237,5 +238,103 @@ export class Project extends Scene {
                 background_tex: this.buffered_textures[3].texture_buffer_pointer
             })
         )
+    }
+}
+
+
+export class Inertia_Demo extends Simulation {
+    // ** Inertia_Demo** demonstration: This scene lets random initial momentums
+    // carry several bodies until they fall due to gravity and bounce.
+    constructor() {
+        super();
+        this.data = new Test_Data();
+        this.shapes = Object.assign({}, this.data.shapes);
+        this.shapes.square = new defs.Square();
+        const shader = new defs.Fake_Bump_Map(1);
+
+        //movement
+        this.jump = false;
+        this.left = false;
+        this.right = false;
+
+        this.restart = false;
+
+        this.material = new Material(shader, {
+            color: color(1, 1, 1, 1),
+            ambient: .5, texture: this.data.textures.black
+        })
+    }
+
+    chosen_color() {
+        //ball color
+        return this.material.override(color(10, 1, 1, 1));
+    }
+
+    update_state(dt) {
+        // update_state():  Override the base time-stepping code to say what this particular
+        // scene should do to its bodies every frame -- including applying forces.
+        // Generate additional moving bodies if there ever aren't enough:
+        while(this.user_sphere.length < 1)
+            this.user_sphere.push(new Body(this.shapes.sphere, this.chosen_color(), vec3(1, 1 , 1))
+                .emplace(Mat4.translation(...vec3(0, -8, 0)),
+                    vec3(0, 0, 0).randomized(10).normalized(), 1));
+                    
+
+        for (let b of this.user_sphere) {
+            // Gravity on Earth, where 1 unit in world space = 1 meter:
+            b.linear_velocity[0] = 0;
+
+            b.linear_velocity[2] = -1;
+            if (this.jump == true)
+            {
+                b.linear_velocity[1] = 10;
+                this.jump = false;
+            }
+
+            if (this.right == true)
+            {
+                b.linear_velocity[0] = 100;
+                this.right = false;
+            }
+            if (this.left == true)
+            {
+                b.linear_velocity[0] = 100;
+                this.left = false;
+            }
+            
+            
+            b.linear_velocity[1] += dt * -9.8;
+            // If about to fall through floor, reverse y velocity:
+            if (b.center[1] < -8 && b.linear_velocity[1] < 0)
+                b.linear_velocity[1] = 0;
+
+            
+
+        }
+        
+
+        // Delete bodies that stop or stray too far away:
+        if (this.restart)
+        {
+            this.user_sphere = this.user_sphere.filter(b => b.center.norm() < 0);
+            this.restart = false;
+        }
+    }
+
+    display(context, program_state) {
+        // display(): Draw everything else in the scene besides the moving bodies.
+        super.display(context, program_state);
+
+        if (!context.scratchpad.controls) {
+            this.children.push(context.scratchpad.controls = new defs.Movement_Controls());
+            this.children.push(new defs.Program_State_Viewer());
+            program_state.set_camera(Mat4.translation(0, 0, -50));    // Locate the camera here (inverted matrix).
+        }
+        program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, 1, 500);
+        program_state.lights = [new Light(vec4(0, -5, -10, 1), color(1, 1, 1, 1), 100000)];
+        // Draw the ground:
+        this.shapes.square.draw(context, program_state, Mat4.translation(0, -10, 0)
+                .times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(50, 50, 1)),
+            this.material.override(this.data.textures.black));
     }
 }
