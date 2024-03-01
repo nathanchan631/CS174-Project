@@ -88,11 +88,12 @@ export class Simulation extends Scene {
     }
 
     display(context, program_state) {
-        // THE FOLLOWING CODE HAS BEEN COMMENTED OUT FROM THE ORIGINAL
         // display(): advance the time and state of our whole simulation.
-        // if (program_state.animate)
-            // this.simulate(program_state.animation_delta_time);
+        if (program_state.animate)
+            this.simulate(program_state.animation_delta_time);
+    }
 
+    render_scene(context, program_state) {
         // Draw each shape at its current location:
         for (let b of this.user_sphere)
             b.shape.draw(context, program_state, b.drawn_location, b.material);
@@ -143,8 +144,6 @@ export class Project extends Simulation {
         }
 
         this.screen_transform = Mat4.identity();
-        this.camera_location = Mat4.look_at(vec3(0, 3, -15), vec3(0, -1, 20), vec3(0, 1, 0));
-
         this.ground_transform = Mat4.translation(0,-5,75).times(Mat4.scale(8,1,80));
 
         // To make sure texture initialization only happens once
@@ -265,13 +264,13 @@ export class Project extends Simulation {
     render_scene_normal(context, program_state) {
 
         // Draw the objects
-        super.display(context, program_state); // draw simulation objects
+        super.render_scene(context, program_state); // draw simulation objects
         this.shapes.cube.draw(context, program_state, this.ground_transform, this.materials.ground); // draw ground
     }
 
     // render stuff to be blurred
     render_scene_blur(context, program_state) {
-        super.display(context, program_state);
+        super.render_scene(context, program_state);
     }
 
 
@@ -291,7 +290,11 @@ export class Project extends Simulation {
         }
 
         // TODO: Camera follow the ball
-        program_state.set_camera(this.camera_location)
+        if(this.user_sphere.length != 0) {
+            let camera_pos = this.user_sphere[0].center.plus([0, 3, -15]);
+            program_state.set_camera(Mat4.look_at(camera_pos, camera_pos.plus(vec3(0, -1, 20)), vec3(0, 1, 0)))
+        }
+        
 
 
         // lights. TODO: change light position and color - maybe white centered on the ball?
@@ -303,8 +306,7 @@ export class Project extends Simulation {
         program_state.lights = [new Light(this.light_position, this.light_color, 1000)];
 
         // one simulation step
-        if (program_state.animate)
-            this.simulate(program_state.animation_delta_time);
+        super.display(context, program_state);
 
 
         // MULTIPASS RENDERING
