@@ -26,6 +26,7 @@ import { Body } from './examples/collisions-demo.js';
 const TEXTURE_BUFFER_SIZE = 2048;
 
 
+// class that encapsulates all simulation objects and logic
 export class Simulation extends Scene {
     // **Simulation** manages the stepping of simulation time.  Subclass it when making
     // a Scene that is a physics demo.  This technique is careful to totally decouple
@@ -110,7 +111,8 @@ export class Project extends Simulation {
 
         this.shapes = {
             sphere: new defs.Subdivision_Sphere(6),
-            square: new defs.Square()
+            square: new defs.Square(),
+            cube: new defs.Cube()
         };
 
         this.materials = {
@@ -130,14 +132,22 @@ export class Project extends Simulation {
                 color: color(1, 0, 0, 1),
                 shininess: 2.0,
                 glow: 3.0
+            }),
+
+            ground: new Material(new defs.Phong_Shader(), {
+                color: color(.2,.2,.2,1),
+                ambient: 0.2,
+                diffusivity: 0.6,
+                specularity: 0.6
             })
         }
 
-        this.player_transform = Mat4.translation(0, 5, 0);
         this.screen_transform = Mat4.identity();
-        this.camera_location = Mat4.look_at(vec3(0, 0, 50), vec3(0, 0, 0), vec3(0, 1, 0));
+        this.camera_location = Mat4.look_at(vec3(0, 3, -15), vec3(0, -1, 20), vec3(0, 1, 0));
 
-        // To make sure texture initialization only does once
+        this.ground_transform = Mat4.translation(0,-5,75).times(Mat4.scale(8,1,80));
+
+        // To make sure texture initialization only happens once
         this.init_ok = false;
 
         //movement
@@ -155,7 +165,7 @@ export class Project extends Simulation {
         // scene should do to its bodies every frame -- including applying forces.
         // Generate additional moving bodies if there ever aren't enough:
         while(this.user_sphere.length < 1)
-            this.user_sphere.push(new Body(this.shapes.sphere, this.materials.ball, vec3(1, 1, 1))
+            this.user_sphere.push(new Body(this.shapes.sphere, this.materials.ball, vec3(0.65, 0.65, 0.65))
                 .emplace(Mat4.translation(...vec3(0, 0, 0)), vec3(0, 0, 1), 0));
                     
 
@@ -163,7 +173,7 @@ export class Project extends Simulation {
             // Gravity on Earth, where 1 unit in world space = 1 meter:
             b.linear_velocity[0] = 0;
 
-            b.linear_velocity[2] = -1;
+            b.linear_velocity[2] = 1;
             if (this.jump == true)
             {
                 b.linear_velocity[1] = 10;
@@ -180,13 +190,12 @@ export class Project extends Simulation {
                 b.linear_velocity[0] = -100;
                 this.left = false;
             }
-            
-            
+
             b.linear_velocity[1] += dt * -9.8;
-            // If about to fall through floor, reverse y velocity:
+
+            // If about to fall through floor, set y velocity to 0
             if (b.center[1] < this.floor_y && b.linear_velocity[1] < 0)
                 b.linear_velocity[1] = 0;
-
         }
         
         // Delete bodies that stop or stray too far away:
@@ -252,10 +261,12 @@ export class Project extends Simulation {
     }
 
     // anything here will not be blurred
+    // IMPORTANT: Anything black will be clipped out. If you want, black, use color(.01,.01,.01,1) or something
     render_scene_normal(context, program_state) {
 
         // Draw the objects
-        super.display(context, program_state);
+        super.display(context, program_state); // draw simulation objects
+        this.shapes.cube.draw(context, program_state, this.ground_transform, this.materials.ground); // draw ground
     }
 
     // render stuff to be blurred
@@ -284,14 +295,9 @@ export class Project extends Simulation {
 
 
         // lights. TODO: change light position and color - maybe white centered on the ball?
-        this.light_position = Mat4.rotation(t / 1000, 0, 1, 0).times(vec4(3, 6, 0, 1));
-        this.light_color = color(
-            0.667 + Math.sin(t/400) / 3,
-            0.667 + Math.sin(t/1200) / 3,
-            0.667 + Math.sin(t/3000) / 3,
-            1
-        );
-        this.light_view_target = vec4(0, 0, 0, 1);
+        this.light_position = vec4(0,0,0,1);
+        this.light_color = color(1,1,1,1);
+        this.light_view_target = this.player_transform;
         this.light_field_of_view = 130 * Math.PI / 180; // 130 degrees
 
         program_state.lights = [new Light(this.light_position, this.light_color, 1000)];
@@ -310,7 +316,9 @@ export class Project extends Simulation {
 
         this.render_background(context, program_state);
 
-
+        // TODO: For a platform glow, could find all black pixels that are close to a non black pixel
+        // http://geoffprewett.com/blog/software/opengl-outline/
+        
         // render all non blurred objects
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[0]);
         gl.viewport(0, 0, this.texture_size, this.texture_size);
