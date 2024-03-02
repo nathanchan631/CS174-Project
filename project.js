@@ -79,10 +79,10 @@ export class Simulation extends Scene {
         this.key_triggered_button("Speed up time", ["Shift", "T"], () => this.time_scale *= 5);
         this.key_triggered_button("Slow down time", ["t"], () => this.time_scale /= 5);
         this.key_triggered_button("Jump", ["u"], () => this.jump = true);
-        this.key_triggered_button("Forward", ["w"], () => this.front = true);
-        this.key_triggered_button("Backward", ["s"], () => this.back = true);
-        this.key_triggered_button("Right", ["d"], () => this.right = true, this.left = false);
-        this.key_triggered_button("Left", ["a"], () => this.left = true, this.right = false);
+        this.key_triggered_button("Forward", ["w"], () => {this.front = true; this.back = false});
+        this.key_triggered_button("Backward", ["s"], () => {this.back = true, this.front = false});
+        this.key_triggered_button("Right", ["d"], () => {this.right = true; this.left = false});
+        this.key_triggered_button("Left", ["a"], () => {this.left = true; this.right = false});
         // this.key_triggered_button("Stop right", ["a"], () => this.right = false);
         // this.key_triggered_button("Stop left", ["d"], () => this.left = false);
         
@@ -177,6 +177,22 @@ export class Project extends Simulation {
         this.floor_y = 0;
     }
 
+    reset(){
+        this.user_sphere = this.user_sphere.filter(b => b.center.norm() < 0);
+            this.restart = false;
+            this.front = false;
+            this.back = false;
+            this.right = false;
+            this.left = false;
+            for (let b of this.user_sphere)
+            {
+                for (let i = 0; i < 3; i++)
+                {
+                    b.linear_velocity[i] = 0;
+                }
+            }      
+    }
+
     update_state(dt) {
         // update_state():  Override the base time-stepping code to say what this particular
         // scene should do to its bodies every frame -- including applying forces.
@@ -207,48 +223,64 @@ export class Project extends Simulation {
                 this.jump = false;
             }
             let move_time = 250;
+            let movement_speed = .2;
             if (this.right) {
-                setTimeout(() => {
-                    // After one second, reset the right flag to false to stop the movement
-                    this.right = false;
-                }, move_time); // Timeout set to one second (1000 milliseconds)
-                
+                // setTimeout(() => {
+                //     // After one second, reset the right flag to false to stop the movement
+                //     this.right = false;
+                // }, move_time); // Timeout set to one second (1000 milliseconds)
+                if (b.linear_velocity[0] > 0)
+                {
+                    b.linear_velocity[0] = 0;
+                }
                 // In the update_state method, adjust the velocity based on whether right movement is active
                 if (this.right) {
-                    b.linear_velocity[0] -= dt * 1; // Adjust velocity as needed
+                    b.linear_velocity[0] -= dt * movement_speed; // Adjust velocity as needed
                 }
             }
             if (this.left) {
-                setTimeout(() => {
-                    // After one second, reset the right flag to false to stop the movement
-                    this.left = false;
-                }, move_time); // Timeout set to one second (1000 milliseconds)
+                // setTimeout(() => {
+                //     // After one second, reset the right flag to false to stop the movement
+                //     this.left = false;
+                // }, move_time); // Timeout set to one second (1000 milliseconds)
                 
                 // In the update_state method, adjust the velocity based on whether right movement is active
+                if (b.linear_velocity[0] < 0)
+                {
+                    b.linear_velocity[0] = 0;
+                }
                 if (this.left) {
-                    b.linear_velocity[0] += dt * 1; // Adjust velocity as needed
+                    b.linear_velocity[0] += dt * movement_speed; // Adjust velocity as needed
                 }
             }
             if (this.front) {
-                setTimeout(() => {
-                    // After one second, reset the right flag to false to stop the movement
-                    this.front = false;
-                }, move_time); // Timeout set to one second (1000 milliseconds)
-                
+                // setTimeout(() => {
+                //     // After one second, reset the right flag to false to stop the movement
+                //     this.front = false;
+                // }, move_time); // Timeout set to one second (1000 milliseconds)
+                if (b.linear_velocity[2] < 0)
+                {
+                    b.linear_velocity[2] = 0;
+                }
                 // In the update_state method, adjust the velocity based on whether right movement is active
+                // b.linear_velocity[2] = .5;
                 if (this.front) {
-                    b.linear_velocity[2] += dt * 1; // Adjust velocity as needed
+                    b.linear_velocity[2] += dt * movement_speed; // Adjust velocity as needed
                 }
             }
             if (this.back) {
-                setTimeout(() => {
-                    // After one second, reset the right flag to false to stop the movement
-                    this.back = false;
-                }, move_time); // Timeout set to one second (1000 milliseconds)
-                
+                // setTimeout(() => {
+                //     // After one second, reset the right flag to false to stop the movement
+                //     this.back = false;
+                // }, move_time); // Timeout set to one second (1000 milliseconds)
+                if (b.linear_velocity[2] > 0)
+                {
+                    b.linear_velocity[2] = 0;
+                }
+
                 // In the update_state method, adjust the velocity based on whether right movement is active
                 if (this.back) {
-                    b.linear_velocity[2] -= dt * 1; // Adjust velocity as needed
+                    b.linear_velocity[2] -= dt * movement_speed; // Adjust velocity as needed
                 }
             }
 
@@ -263,8 +295,7 @@ export class Project extends Simulation {
         // Delete bodies that stop or stray too far away:
         if (this.restart)
         {
-            this.user_sphere = this.user_sphere.filter(b => b.center.norm() < 0);
-            this.restart = false;
+            this.reset();
         }
         
         const collider = this.colliders[this.collider_selection];
@@ -288,7 +319,7 @@ export class Project extends Simulation {
                     continue;
                 // If we get here, we collided, so turn red and zero out the
                 // velocity so they don't inter-penetrate any further.
-                a.linear_velocity = vec3(0, 0, 0);
+                this.reset();
             }
         }        
     }
