@@ -26,6 +26,7 @@ import { Body } from './examples/collisions-demo.js';
 const TEXTURE_BUFFER_SIZE = 2048;
 
 
+
 // class that encapsulates all simulation objects and logic
 export class Simulation extends Scene {
     // **Simulation** manages the stepping of simulation time.  Subclass it when making
@@ -33,7 +34,15 @@ export class Simulation extends Scene {
     // the simulation from the frame rate (see below).
     constructor() {
         super();
-        Object.assign(this, {time_accumulator: 0, time_scale: 1, t: 0, dt: 1 / 100, user_sphere: [], steps_taken: 0});
+        Object.assign(this, {time_accumulator: 0, time_scale: 1, t: 0, dt: 1 / 100, user_sphere: [], steps_taken: 0, bodies : []});
+        
+        // Make simpler dummy shapes for representing all other shapes during collisions:
+        this.colliders = [
+            {intersect_test: Body.intersect_sphere, points: new defs.Subdivision_Sphere(1), leeway: .1},
+            {intersect_test: Body.intersect_sphere, points: new defs.Subdivision_Sphere(2), leeway: .1},
+            {intersect_test: Body.intersect_cube, points: new defs.Cube(), leeway: .1}
+        ];
+        this.collider_selection = 0;
     }
 
     simulate(frame_time) {
@@ -70,8 +79,13 @@ export class Simulation extends Scene {
         this.key_triggered_button("Speed up time", ["Shift", "T"], () => this.time_scale *= 5);
         this.key_triggered_button("Slow down time", ["t"], () => this.time_scale /= 5);
         this.key_triggered_button("Jump", ["u"], () => this.jump = true);
-        this.key_triggered_button("Right", ["k"], () => this.right = true);
-        this.key_triggered_button("Left", ["j"], () => this.left = true);
+        this.key_triggered_button("Forward", ["w"], () => this.front = true);
+        this.key_triggered_button("Backward", ["s"], () => this.back = true);
+        this.key_triggered_button("Right", ["d"], () => this.right = true, this.left = false);
+        this.key_triggered_button("Left", ["a"], () => this.left = true, this.right = false);
+        // this.key_triggered_button("Stop right", ["a"], () => this.right = false);
+        // this.key_triggered_button("Stop left", ["d"], () => this.left = false);
+        
         this.key_triggered_button("Restart", ["r"], () => this.restart = true);
         this.new_line();
         this.live_string(box => {
@@ -97,6 +111,8 @@ export class Simulation extends Scene {
         // Draw each shape at its current location:
         for (let b of this.user_sphere)
             b.shape.draw(context, program_state, b.drawn_location, b.material);
+        for (let a of this.bodies)
+            a.shape.draw(context, program_state, a.drawn_location, a.material);
     }
 
     update_state(dt)      // update_state(): Your subclass of Simulation has to override this abstract function.
@@ -150,6 +166,8 @@ export class Project extends Simulation {
         this.init_ok = false;
 
         //movement
+        this.front = false;
+        this.back = false;
         this.jump = false;
         this.left = false;
         this.right = false;
@@ -166,28 +184,72 @@ export class Project extends Simulation {
         while(this.user_sphere.length < 1)
             this.user_sphere.push(new Body(this.shapes.sphere, this.materials.ball, vec3(0.65, 0.65, 0.65))
                 .emplace(Mat4.translation(...vec3(0, 0, 0)), vec3(0, 0, 1), 0));
+        
+        while(this.bodies.length < 1)
+            this.bodies.push(new Body(this.shapes.cube, this.materials.ball, vec3(0.65, 0.65, 0.65))
+                .emplace(Mat4.translation(...vec3(5, 0, 0)), vec3(0, 0, 0), 0));
                     
 
         for (let b of this.user_sphere) {
             // Gravity on Earth, where 1 unit in world space = 1 meter:
-            b.linear_velocity[0] = 0;
+            if (!this.left && !this.right)
+            {
+                b.linear_velocity[0] = 0;
+            }
 
-            b.linear_velocity[2] = 1;
-            if (this.jump == true)
+            if (!this.front && !this.back)
+            {
+                b.linear_velocity[2] = 0;
+            }
+            if (this.jump == true && b.linear_velocity[1] == 0)
             {
                 b.linear_velocity[1] = 10;
                 this.jump = false;
             }
-
-            if (this.right == true)
-            {
-                b.linear_velocity[0] = 100;
-                this.right = false;
+            let move_time = 250;
+            if (this.right) {
+                setTimeout(() => {
+                    // After one second, reset the right flag to false to stop the movement
+                    this.right = false;
+                }, move_time); // Timeout set to one second (1000 milliseconds)
+                
+                // In the update_state method, adjust the velocity based on whether right movement is active
+                if (this.right) {
+                    b.linear_velocity[0] -= dt * 1; // Adjust velocity as needed
+                }
             }
-            if (this.left == true)
-            {
-                b.linear_velocity[0] = -100;
-                this.left = false;
+            if (this.left) {
+                setTimeout(() => {
+                    // After one second, reset the right flag to false to stop the movement
+                    this.left = false;
+                }, move_time); // Timeout set to one second (1000 milliseconds)
+                
+                // In the update_state method, adjust the velocity based on whether right movement is active
+                if (this.left) {
+                    b.linear_velocity[0] += dt * 1; // Adjust velocity as needed
+                }
+            }
+            if (this.front) {
+                setTimeout(() => {
+                    // After one second, reset the right flag to false to stop the movement
+                    this.front = false;
+                }, move_time); // Timeout set to one second (1000 milliseconds)
+                
+                // In the update_state method, adjust the velocity based on whether right movement is active
+                if (this.front) {
+                    b.linear_velocity[2] += dt * 1; // Adjust velocity as needed
+                }
+            }
+            if (this.back) {
+                setTimeout(() => {
+                    // After one second, reset the right flag to false to stop the movement
+                    this.back = false;
+                }, move_time); // Timeout set to one second (1000 milliseconds)
+                
+                // In the update_state method, adjust the velocity based on whether right movement is active
+                if (this.back) {
+                    b.linear_velocity[2] -= dt * 1; // Adjust velocity as needed
+                }
             }
 
             b.linear_velocity[1] += dt * -9.8;
@@ -195,6 +257,7 @@ export class Project extends Simulation {
             // If about to fall through floor, set y velocity to 0
             if (b.center[1] < this.floor_y && b.linear_velocity[1] < 0)
                 b.linear_velocity[1] = 0;
+
         }
         
         // Delete bodies that stop or stray too far away:
@@ -203,6 +266,31 @@ export class Project extends Simulation {
             this.user_sphere = this.user_sphere.filter(b => b.center.norm() < 0);
             this.restart = false;
         }
+        
+        const collider = this.colliders[this.collider_selection];
+
+        for (let a of this.user_sphere) {
+            // Cache the inverse of matrix of body "a" to save time.
+            a.inverse = Mat4.inverse(a.drawn_location);
+
+            // a.linear_velocity = a.linear_velocity.minus(a.center.times(dt));
+            // Apply a small centripetal force to everything.
+            // a.material = this.inactive_color;
+            // // Default color: white
+
+            if (a.linear_velocity.norm() == 0)
+                continue;
+            // *** Collision process is here ***
+            // Loop through all bodies again (call each "b"):
+            for (let b of this.bodies) {
+                // Pass the two bodies and the collision shape to check_if_colliding():
+                if (!a.check_if_colliding(b, collider))
+                    continue;
+                // If we get here, we collided, so turn red and zero out the
+                // velocity so they don't inter-penetrate any further.
+                a.linear_velocity = vec3(0, 0, 0);
+            }
+        }        
     }
 
 
