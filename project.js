@@ -75,15 +75,19 @@ export class Simulation extends Scene {
             this.user_sphere.blend_state(alpha);
     }
 
-    make_control_panel() {
+    make_control_panel() {dw
         // make_control_panel(): Create the buttons for interacting with simulation time.
         this.key_triggered_button("Speed up time", ["Shift", "T"], () => this.time_scale *= 5);
         this.key_triggered_button("Slow down time", ["t"], () => this.time_scale /= 5);
         this.key_triggered_button("Jump", ["u"], () => this.jump = true);
         this.key_triggered_button("Forward", ["w"], () => this.front = true, '#6E6460', () => this.front = false);
+        this.key_triggered_button("Forward", ["ArrowUp"], () => this.front = true, '#6E6460', () => this.front = false);
         this.key_triggered_button("Backward", ["s"], () => this.back = true, '#6E6460', () => this.back = false);
+        this.key_triggered_button("Backward", ["ArrowDown"], () => this.back = true, '#6E6460', () => this.back = false);
         this.key_triggered_button("Right", ["d"], () => this.right = true, '#6E6460', () => this.right = false);
+        this.key_triggered_button("Right", ["ArrowRight"], () => this.right = true, '#6E6460', () => this.right = false);
         this.key_triggered_button("Left", ["a"], () => this.left = true, '#6E6460', () => this.left = false);
+        this.key_triggered_button("Left", ["ArrowLeft"], () => this.left = true, '#6E6460', () => this.left = false);
         
         this.key_triggered_button("Restart", ["r"], () => this.restart = true);
         this.new_line();
