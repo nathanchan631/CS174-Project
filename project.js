@@ -34,11 +34,11 @@ export class Simulation extends Scene {
     // the simulation from the frame rate (see below).
     constructor() {
         super();
-        Object.assign(this, {time_accumulator: 0, time_scale: 1, t: 0, dt: 1 / 100, user_sphere: [], steps_taken: 0, bodies : []});
+        Object.assign(this, {time_accumulator: 0, time_scale: 1, t: 0, dt: 1 / 100, user_sphere: null, steps_taken: 0, bodies : []});
         
         // Make simpler dummy shapes for representing all other shapes during collisions:
         this.colliders = [
-            {intersect_test: Body.intersect_sphere, points: new defs.Subdivision_Sphere(1), leeway: .1},
+            {intersect_test: Body.intersect_sphere, points: new defs.Subdivision_Sphere(5), leeway: .1},
             {intersect_test: Body.intersect_sphere, points: new defs.Subdivision_Sphere(2), leeway: .1},
             {intersect_test: Body.intersect_cube, points: new defs.Cube(), leeway: .1}
         ];
@@ -59,8 +59,8 @@ export class Simulation extends Scene {
         while (Math.abs(this.time_accumulator) >= this.dt) {
             // Single step of the simulation for all bodies:
             this.update_state(this.dt);
-            for (let b of this.user_sphere)
-                b.advance(this.dt);
+            if (this.user_sphere != null)
+                this.user_sphere.advance(this.dt);
             // Following the advice of the article, de-couple
             // our simulation time from our frame rate:
             this.t += Math.sign(frame_time) * this.dt;
@@ -71,7 +71,8 @@ export class Simulation extends Scene {
         // the two latest simulation time steps, so we can correctly blend the
         // two latest states and display the result.
         let alpha = this.time_accumulator / this.dt;
-        for (let b of this.user_sphere) b.blend_state(alpha);
+        if (this.user_sphere != null)
+            this.user_sphere.blend_state(alpha);
     }
 
     make_control_panel() {
@@ -79,12 +80,10 @@ export class Simulation extends Scene {
         this.key_triggered_button("Speed up time", ["Shift", "T"], () => this.time_scale *= 5);
         this.key_triggered_button("Slow down time", ["t"], () => this.time_scale /= 5);
         this.key_triggered_button("Jump", ["u"], () => this.jump = true);
-        this.key_triggered_button("Forward", ["w"], () => {this.front = true; this.back = false});
-        this.key_triggered_button("Backward", ["s"], () => {this.back = true, this.front = false});
-        this.key_triggered_button("Right", ["d"], () => {this.right = true; this.left = false});
-        this.key_triggered_button("Left", ["a"], () => {this.left = true; this.right = false});
-        // this.key_triggered_button("Stop right", ["a"], () => this.right = false);
-        // this.key_triggered_button("Stop left", ["d"], () => this.left = false);
+        this.key_triggered_button("Forward", ["w"], () => this.front = true, '#6E6460', () => this.front = false);
+        this.key_triggered_button("Backward", ["s"], () => this.back = true, '#6E6460', () => this.back = false);
+        this.key_triggered_button("Right", ["d"], () => this.right = true, '#6E6460', () => this.right = false);
+        this.key_triggered_button("Left", ["a"], () => this.left = true, '#6E6460', () => this.left = false);
         
         this.key_triggered_button("Restart", ["r"], () => this.restart = true);
         this.new_line();
@@ -107,10 +106,21 @@ export class Simulation extends Scene {
             this.simulate(program_state.animation_delta_time);
     }
 
-    render_scene(context, program_state) {
-        // Draw each shape at its current location:
-        for (let b of this.user_sphere)
-            b.shape.draw(context, program_state, b.drawn_location, b.material);
+    // objects that aren't blurred
+    // IMPORTANT: Anything black will be clipped out. If you want, black, use color(.01,.01,.01,1) or something
+    render_scene_normal(context, program_state) {
+        if (this.user_sphere != null)
+            this.user_sphere.shape.draw(context, program_state, this.user_sphere.drawn_location, this.user_sphere.material);
+
+        for (let a of this.bodies)
+            a.shape.draw(context, program_state, a.drawn_location, a.material);
+    }
+
+    // objects to be blurred. note some objects are drawn both blurred and not blurred
+    render_scene_blurred(context, program_state) {
+        if (this.user_sphere != null)
+            this.user_sphere.shape.draw(context, program_state, this.user_sphere.drawn_location, this.user_sphere.material);
+
         for (let a of this.bodies)
             a.shape.draw(context, program_state, a.drawn_location, a.material);
     }
@@ -177,151 +187,82 @@ export class Project extends Simulation {
         this.floor_y = 0;
     }
 
-    reset(){
-        this.user_sphere = this.user_sphere.filter(b => b.center.norm() < 0);
-            this.restart = false;
-            this.front = false;
-            this.back = false;
-            this.right = false;
-            this.left = false;
-            for (let b of this.user_sphere)
-            {
-                for (let i = 0; i < 3; i++)
-                {
-                    b.linear_velocity[i] = 0;
-                }
-            }      
+    reset() {
+        this.user_sphere = null;
+        this.restart = false;
+        this.front = false;
+        this.back = false;
+        this.right = false;
+        this.left = false;
     }
 
     update_state(dt) {
         // update_state():  Override the base time-stepping code to say what this particular
         // scene should do to its bodies every frame -- including applying forces.
         // Generate additional moving bodies if there ever aren't enough:
-        while(this.user_sphere.length < 1)
-            this.user_sphere.push(new Body(this.shapes.sphere, this.materials.ball, vec3(0.65, 0.65, 0.65))
-                .emplace(Mat4.translation(...vec3(0, 0, 0)), vec3(0, 0, 1), 0));
+        if (this.user_sphere == null)
+            this.user_sphere = new Body(this.shapes.sphere, this.materials.ball, vec3(0.65, 0.65, 0.65))
+                .emplace(Mat4.translation(...vec3(0, 0, 0)), vec3(0, 0, 0), 0);
         
         while(this.bodies.length < 1)
-            this.bodies.push(new Body(this.shapes.cube, this.materials.ball, vec3(0.65, 0.65, 0.65))
+            this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(0,1,0,1)}), vec3(0.65, 0.65, 0.65))
                 .emplace(Mat4.translation(...vec3(5, 0, 0)), vec3(0, 0, 0), 0));
-                    
 
-        for (let b of this.user_sphere) {
-            // Gravity on Earth, where 1 unit in world space = 1 meter:
-            if (!this.left && !this.right)
-            {
-                b.linear_velocity[0] = 0;
-            }
 
-            if (!this.front && !this.back)
-            {
-                b.linear_velocity[2] = 0;
-            }
-            if (this.jump == true && b.linear_velocity[1] == 0)
-            {
-                b.linear_velocity[1] = 10;
-                this.jump = false;
-            }
-            let move_time = 250;
-            let movement_speed = .2;
-            if (this.right) {
-                // setTimeout(() => {
-                //     // After one second, reset the right flag to false to stop the movement
-                //     this.right = false;
-                // }, move_time); // Timeout set to one second (1000 milliseconds)
-                if (b.linear_velocity[0] > 0)
-                {
-                    b.linear_velocity[0] = 0;
-                }
-                // In the update_state method, adjust the velocity based on whether right movement is active
-                if (this.right) {
-                    b.linear_velocity[0] -= dt * movement_speed; // Adjust velocity as needed
-                }
-            }
-            if (this.left) {
-                // setTimeout(() => {
-                //     // After one second, reset the right flag to false to stop the movement
-                //     this.left = false;
-                // }, move_time); // Timeout set to one second (1000 milliseconds)
-                
-                // In the update_state method, adjust the velocity based on whether right movement is active
-                if (b.linear_velocity[0] < 0)
-                {
-                    b.linear_velocity[0] = 0;
-                }
-                if (this.left) {
-                    b.linear_velocity[0] += dt * movement_speed; // Adjust velocity as needed
-                }
-            }
-            if (this.front) {
-                // setTimeout(() => {
-                //     // After one second, reset the right flag to false to stop the movement
-                //     this.front = false;
-                // }, move_time); // Timeout set to one second (1000 milliseconds)
-                if (b.linear_velocity[2] < 0)
-                {
-                    b.linear_velocity[2] = 0;
-                }
-                // In the update_state method, adjust the velocity based on whether right movement is active
-                // b.linear_velocity[2] = .5;
-                if (this.front) {
-                    b.linear_velocity[2] += dt * movement_speed; // Adjust velocity as needed
-                }
-            }
-            if (this.back) {
-                // setTimeout(() => {
-                //     // After one second, reset the right flag to false to stop the movement
-                //     this.back = false;
-                // }, move_time); // Timeout set to one second (1000 milliseconds)
-                if (b.linear_velocity[2] > 0)
-                {
-                    b.linear_velocity[2] = 0;
-                }
+        // left, right, forward, backward
+        let movement_speed = .4;
 
-                // In the update_state method, adjust the velocity based on whether right movement is active
-                if (this.back) {
-                    b.linear_velocity[2] -= dt * movement_speed; // Adjust velocity as needed
-                }
-            }
+        if (this.left)
+            this.user_sphere.linear_velocity[0] += dt * movement_speed;
 
-            b.linear_velocity[1] += dt * -9.8;
+        if (this.right)
+            this.user_sphere.linear_velocity[0] -= dt * movement_speed;
 
-            // If about to fall through floor, set y velocity to 0
-            if (b.center[1] < this.floor_y && b.linear_velocity[1] < 0)
-                b.linear_velocity[1] = 0;
+        if (this.front)
+            this.user_sphere.linear_velocity[2] += dt * movement_speed;
+        
+        if (this.back)
+            this.user_sphere.linear_velocity[2] -= dt * movement_speed;
 
+
+        // Gravity on Earth, where 1 unit in world space = 1 meter:
+        if (this.jump == true && this.user_sphere.linear_velocity[1] == 0)
+        {
+            this.user_sphere.linear_velocity[1] = 10;
+            this.jump = false;
         }
+        this.user_sphere.linear_velocity[1] += dt * -9.8;
+
+        // If about to fall through floor, set y velocity to 0
+        if (this.user_sphere.center[1] < this.floor_y && this.user_sphere.linear_velocity[1] < 0)
+            this.user_sphere.linear_velocity[1] = 0;
+        
         
         // Delete bodies that stop or stray too far away:
         if (this.restart)
-        {
             this.reset();
-        }
         
         const collider = this.colliders[this.collider_selection];
 
-        for (let a of this.user_sphere) {
-            // Cache the inverse of matrix of body "a" to save time.
-            a.inverse = Mat4.inverse(a.drawn_location);
+        // Cache the inverse of matrix of the sphere body to save time.
+        if (this.user_sphere != null)
+            this.user_sphere.inverse = Mat4.inverse(this.user_sphere.drawn_location);
 
-            // a.linear_velocity = a.linear_velocity.minus(a.center.times(dt));
-            // Apply a small centripetal force to everything.
-            // a.material = this.inactive_color;
-            // // Default color: white
+        // a.linear_velocity = a.linear_velocity.minus(a.center.times(dt));
+        // Apply a small centripetal force to everything.
+        // a.material = this.inactive_color;
+        // // Default color: white
 
-            if (a.linear_velocity.norm() == 0)
+        // if (this.user_sphere.linear_velocity.norm() == 0)
+        //     return;
+
+        // TODO: this collision algorithm is really bad
+        for (let b of this.bodies) {
+            if (this.user_sphere != null && !this.user_sphere.check_if_colliding(b, collider))
                 continue;
-            // *** Collision process is here ***
-            // Loop through all bodies again (call each "b"):
-            for (let b of this.bodies) {
-                // Pass the two bodies and the collision shape to check_if_colliding():
-                if (!a.check_if_colliding(b, collider))
-                    continue;
-                // If we get here, we collided, so turn red and zero out the
-                // velocity so they don't inter-penetrate any further.
-                this.reset();
-            }
-        }        
+
+            this.reset();
+        }
     }
 
 
@@ -383,13 +324,13 @@ export class Project extends Simulation {
     render_scene_normal(context, program_state) {
 
         // Draw the objects
-        super.render_scene(context, program_state); // draw simulation objects
+        super.render_scene_normal(context, program_state); // draw simulation objects
         this.shapes.cube.draw(context, program_state, this.ground_transform, this.materials.ground); // draw ground
     }
 
     // render stuff to be blurred
-    render_scene_blur(context, program_state) {
-        super.render_scene(context, program_state);
+    render_scene_blurred(context, program_state) {
+        super.render_scene_blurred(context, program_state); // draw simulation objects
     }
 
 
@@ -409,8 +350,8 @@ export class Project extends Simulation {
         }
 
         // TODO: Camera follow the ball
-        if(this.user_sphere.length != 0) {
-            let camera_pos = this.user_sphere[0].center.plus([0, 3, -15]);
+        if(this.user_sphere != null) {
+            let camera_pos = this.user_sphere.center.plus([0, 3, -15]);
             program_state.set_camera(Mat4.look_at(camera_pos, camera_pos.plus(vec3(0, -1, 20)), vec3(0, 1, 0)))
         }
         
@@ -455,7 +396,7 @@ export class Project extends Simulation {
         gl.viewport(0, 0, this.texture_size, this.texture_size);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        this.render_scene_blur(context, program_state);
+        this.render_scene_blurred(context, program_state);
 
         // Horizontal pass of Gaussian Blur
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[2]);
