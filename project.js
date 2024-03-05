@@ -34,6 +34,12 @@ export class Simulation extends Scene {
     // the simulation from the frame rate (see below).
     constructor() {
         super();
+
+        setInterval(() => {
+            if (this.user_sphere != null) {
+                console.log("Ball center:", this.user_sphere.center);
+            }
+        }, 3000); // Log every 3 seconds
         Object.assign(this, {time_accumulator: 0, time_scale: 1, t: 0, dt: 1 / 100, user_sphere: null, steps_taken: 0, bodies : []});
         
         // Make simpler dummy shapes for representing all other shapes during collisions:
@@ -174,7 +180,7 @@ export class Project extends Simulation {
         }
 
         this.screen_transform = Mat4.identity();
-        this.ground_transform = Mat4.translation(0,-5,75).times(Mat4.scale(8,1,80));
+        this.ground_transform = Mat4.translation(0,-2,75).times(Mat4.scale(8,1,80));
 
         // To make sure texture initialization only happens once
         this.init_ok = false;
@@ -240,7 +246,7 @@ export class Project extends Simulation {
         // If about to fall through floor, set y velocity to 0
         if (this.user_sphere.center[1] < this.floor_y && this.user_sphere.linear_velocity[1] < 0)
             this.user_sphere.linear_velocity[1] = 0;
-        
+
         
         // Delete bodies that stop or stray too far away:
         if (this.restart)
