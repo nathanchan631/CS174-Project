@@ -75,7 +75,7 @@ export class Simulation extends Scene {
             this.user_sphere.blend_state(alpha);
     }
 
-    make_control_panel() {dw
+    make_control_panel() {
         // make_control_panel(): Create the buttons for interacting with simulation time.
         this.key_triggered_button("Speed up time", ["Shift", "T"], () => this.time_scale *= 5);
         this.key_triggered_button("Slow down time", ["t"], () => this.time_scale /= 5);
