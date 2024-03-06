@@ -19,117 +19,14 @@ import {
     Luminscent_Shader, Texture_Shader_2D, Image_Shader_2D, Blend_Texture_Shader_2D, Blur_Texture_Shader_2D
 } from './custom-defs.js'
 
+import { Simulation } from './simulation.js';
+
 import { Buffered_Texture } from './examples/shadow-demo-shaders.js'
 import { Body } from './examples/collisions-demo.js';
+import { Text_Line } from './examples/text-demo.js';
 
 
 const TEXTURE_BUFFER_SIZE = 2048;
-
-
-
-// class that encapsulates all simulation objects and logic
-export class Simulation extends Scene {
-    // **Simulation** manages the stepping of simulation time.  Subclass it when making
-    // a Scene that is a physics demo.  This technique is careful to totally decouple
-    // the simulation from the frame rate (see below).
-    constructor() {
-        super();
-        Object.assign(this, {time_accumulator: 0, time_scale: 1, t: 0, dt: 1 / 100, user_sphere: null, steps_taken: 0, bodies : []});
-        
-        // Make simpler dummy shapes for representing all other shapes during collisions:
-        this.colliders = [
-            {intersect_test: Body.intersect_sphere, points: new defs.Subdivision_Sphere(5), leeway: .1},
-            {intersect_test: Body.intersect_sphere, points: new defs.Subdivision_Sphere(2), leeway: .1},
-            {intersect_test: Body.intersect_cube, points: new defs.Cube(), leeway: .1}
-        ];
-        this.collider_selection = 0;
-    }
-
-    simulate(frame_time) {
-        // simulate(): Carefully advance time according to Glenn Fiedler's
-        // "Fix Your Timestep" blog post.
-        // This line gives ourselves a way to trick the simulator into thinking
-        // that the display framerate is running fast or slow:
-        frame_time = this.time_scale * frame_time;
-
-        // Avoid the spiral of death; limit the amount of time we will spend
-        // computing during this timestep if display lags:
-        this.time_accumulator += Math.min(frame_time, 0.1);
-        // Repeatedly step the simulation until we're caught up with this frame:
-        while (Math.abs(this.time_accumulator) >= this.dt) {
-            // Single step of the simulation for all bodies:
-            this.update_state(this.dt);
-            if (this.user_sphere != null)
-                this.user_sphere.advance(this.dt);
-            // Following the advice of the article, de-couple
-            // our simulation time from our frame rate:
-            this.t += Math.sign(frame_time) * this.dt;
-            this.time_accumulator -= Math.sign(frame_time) * this.dt;
-            this.steps_taken++;
-        }
-        // Store an interpolation factor for how close our frame fell in between
-        // the two latest simulation time steps, so we can correctly blend the
-        // two latest states and display the result.
-        let alpha = this.time_accumulator / this.dt;
-        if (this.user_sphere != null)
-            this.user_sphere.blend_state(alpha);
-    }
-
-    make_control_panel() {
-        // make_control_panel(): Create the buttons for interacting with simulation time.
-        this.key_triggered_button("Speed up time", ["Shift", "T"], () => this.time_scale *= 5);
-        this.key_triggered_button("Slow down time", ["t"], () => this.time_scale /= 5);
-        this.key_triggered_button("Jump", ["u"], () => this.jump = true);
-        this.key_triggered_button("Forward", ["w"], () => this.front = true, '#6E6460', () => this.front = false);
-        this.key_triggered_button("Backward", ["s"], () => this.back = true, '#6E6460', () => this.back = false);
-        this.key_triggered_button("Right", ["d"], () => this.right = true, '#6E6460', () => this.right = false);
-        this.key_triggered_button("Left", ["a"], () => this.left = true, '#6E6460', () => this.left = false);
-        
-        this.key_triggered_button("Restart", ["r"], () => this.restart = true);
-        this.new_line();
-        this.live_string(box => {
-            box.textContent = "Time scale: " + this.time_scale
-        });
-        this.new_line();
-        this.live_string(box => {
-            box.textContent = "Fixed simulation time step size: " + this.dt
-        });
-        this.new_line();
-        this.live_string(box => {
-            box.textContent = this.steps_taken + " timesteps were taken so far."
-        });
-    }
-
-    display(context, program_state) {
-        // display(): advance the time and state of our whole simulation.
-        if (program_state.animate)
-            this.simulate(program_state.animation_delta_time);
-    }
-
-    // objects that aren't blurred
-    // IMPORTANT: Anything black will be clipped out. If you want, black, use color(.01,.01,.01,1) or something
-    render_scene_normal(context, program_state) {
-        if (this.user_sphere != null)
-            this.user_sphere.shape.draw(context, program_state, this.user_sphere.drawn_location, this.user_sphere.material);
-
-        for (let a of this.bodies)
-            a.shape.draw(context, program_state, a.drawn_location, a.material);
-    }
-
-    // objects to be blurred. note some objects are drawn both blurred and not blurred
-    render_scene_blurred(context, program_state) {
-        if (this.user_sphere != null)
-            this.user_sphere.shape.draw(context, program_state, this.user_sphere.drawn_location, this.user_sphere.material);
-
-        for (let a of this.bodies)
-            a.shape.draw(context, program_state, a.drawn_location, a.material);
-    }
-
-    update_state(dt)      // update_state(): Your subclass of Simulation has to override this abstract function.
-    {
-        throw "Override this"
-    }
-}
 
 
 export class Project extends Simulation {
@@ -139,7 +36,8 @@ export class Project extends Simulation {
         this.shapes = {
             sphere: new defs.Subdivision_Sphere(6),
             square: new defs.Square(),
-            cube: new defs.Cube()
+            cube: new defs.Cube(),
+            text: new Text_Line(100)
         };
 
         this.materials = {
@@ -152,7 +50,9 @@ export class Project extends Simulation {
             blend_tex: new Material(new Blend_Texture_Shader_2D(), {
                 blurred_tex: null,
                 non_blurred_tex: null,
-                background_tex: null
+                background_tex: null,
+                ui_tex: null,
+                draw_ui: 0
             }),
     
             ball: new Material(new Luminscent_Shader(), {
@@ -169,8 +69,13 @@ export class Project extends Simulation {
             })
         }
 
+        this.text_image = new Material(new defs.Textured_Phong(1), {
+            ambient: 1, diffusivity: 0, specularity: 0,
+            texture: new Texture("assets/text.png")
+        });
+
         this.screen_transform = Mat4.identity();
-        this.ground_transform = Mat4.translation(0,-5,75).times(Mat4.scale(8,1,80));
+        this.ground_transform = Mat4.translation(0,-2,75).times(Mat4.scale(8,1,80));
 
         // To make sure texture initialization only happens once
         this.init_ok = false;
@@ -228,10 +133,10 @@ export class Project extends Simulation {
         // Gravity on Earth, where 1 unit in world space = 1 meter:
         if (this.jump == true && this.user_sphere.linear_velocity[1] == 0)
         {
-            this.user_sphere.linear_velocity[1] = 10;
+            this.user_sphere.linear_velocity[1] = 6.5;
             this.jump = false;
         }
-        this.user_sphere.linear_velocity[1] += dt * -9.8;
+        this.user_sphere.linear_velocity[1] += dt * -4.5;
 
         // If about to fall through floor, set y velocity to 0
         if (this.user_sphere.center[1] < this.floor_y && this.user_sphere.linear_velocity[1] < 0)
@@ -276,8 +181,8 @@ export class Project extends Simulation {
         this.framebuffers = [];
         this.texture_size = TEXTURE_BUFFER_SIZE;
 
-        // 0 is for non blurred, 1 and 2 are for blurring, 3 is for background
-        for (let i = 0; i < 4; i++) {
+        // 0 is for non blurred, 1 and 2 are for blurring, 3 is for background, 4 is the UI
+        for (let i = 0; i < 5; i++) {
 
             // Framebuffer
             let fb = gl.createFramebuffer();
@@ -333,9 +238,18 @@ export class Project extends Simulation {
         super.render_scene_blurred(context, program_state); // draw simulation objects
     }
 
+    render_ui(context, program_state) {
+        // this.shapes.cube.draw(context, program_state, Mat4.translation(0,5,0,0), this.materials.ground.override({ color: color(1,1,1,1) }));
+        let text_transform = Mat4.translation(this.user_sphere.center[0], this.user_sphere.center[1], this.user_sphere.center[2])
+                            .times(Mat4.translation(2,6,0,0))
+                            .times(Mat4.rotation(-.1, 1, 0, 0))
+                            .times(Mat4.scale(-0.5,0.5,0.5));
+        this.shapes.text.set_string("Paused", context.context);
+        this.shapes.text.draw(context, program_state, text_transform, this.text_image);
+    }
+
 
     display(context, program_state) {
-        const t = program_state.animation_time / 1000, dt = program_state.animation_delta_time / 1000;
         const gl = context.context;
 
         // initialize texture buffer on first frame
@@ -343,27 +257,19 @@ export class Project extends Simulation {
             this.texture_buffer_init(gl);
             this.init_ok = true;
         }
-        
-        // TODO: implement simulation with program state viewer
-        if (!context.scratchpad.controls) {
-            this.children.push(context.scratchpad.controls = new defs.Program_State_Viewer());
-        }
 
-        // TODO: Camera follow the ball
         if(this.user_sphere != null) {
             let camera_pos = this.user_sphere.center.plus([0, 3, -15]);
             program_state.set_camera(Mat4.look_at(camera_pos, camera_pos.plus(vec3(0, -1, 20)), vec3(0, 1, 0)))
         }
         
 
+        this.player_light_position = this.user_sphere != null ? this.user_sphere.center.to4(1) : vec4(0,0,0,1);
+        program_state.lights = [new Light(this.player_light_position, color(1, 0.8, 0.8, 1), 3)];
 
-        // lights. TODO: change light position and color - maybe white centered on the ball?
-        this.light_position = vec4(0,0,0,1);
-        this.light_color = color(1,1,1,1);
-        this.light_view_target = this.player_transform;
-        this.light_field_of_view = 130 * Math.PI / 180; // 130 degrees
-
-        program_state.lights = [new Light(this.light_position, this.light_color, 1000)];
+        for (let body of this.bodies) {
+            program_state.lights.push(new Light(body.center.to4(1), body.material.color.times(0.5).plus([1,1,1]), 3));
+        }
 
         // one simulation step
         super.display(context, program_state);
@@ -417,6 +323,14 @@ export class Project extends Simulation {
             this.materials.blur_tex.override({texture: this.buffered_textures[2].texture_buffer_pointer, horizontal: false})
         );
 
+        // draw ui
+        if (this.program_state && !this.program_state.animate) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[4]);
+            gl.viewport(0, 0, this.texture_size, this.texture_size);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            this.render_ui(context, program_state);
+        }
 
         // unbind, draw to the canvas
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -428,7 +342,9 @@ export class Project extends Simulation {
             this.materials.blend_tex.override({
                 non_blurred_tex: this.buffered_textures[0].texture_buffer_pointer,
                 blurred_tex: this.buffered_textures[1].texture_buffer_pointer,
-                background_tex: this.buffered_textures[3].texture_buffer_pointer
+                background_tex: this.buffered_textures[3].texture_buffer_pointer,
+                ui_tex: this.buffered_textures[4].texture_buffer_pointer,
+                draw_ui: !this.program_state.animate
             })
         )
     }

@@ -94,16 +94,35 @@ export class Blend_Texture_Shader_2D extends Texture_Shader_2D {
             uniform sampler2D non_blurred_tex;
             uniform sampler2D blurred_tex;
             uniform sampler2D background_tex;
+            uniform sampler2D ui_tex;
+            uniform int draw_ui;
 
             void main(){
+                
+                // sample the non blurred tex if it's not black, else the background
                 vec3 sceneColor = texture2D( non_blurred_tex, f_tex_coord ).xyz;
                 if ( sceneColor == vec3(0.0, 0.0, 0.0) ) {
                     sceneColor = texture2D( background_tex, f_tex_coord ).xyz;
                 }
 
+                // add in the color from the blur
                 vec3 bloomColor = texture2D( blurred_tex, f_tex_coord ).xyz;
-                
-                gl_FragColor = vec4( sceneColor + bloomColor, 1.0 );
+
+
+                if (draw_ui == 0) {
+                    gl_FragColor = vec4( sceneColor + bloomColor, 1.0 );
+                }
+
+                else {
+                    vec3 uiColor = texture2D( ui_tex, f_tex_coord ).xyz;
+
+                    if ( uiColor == vec3(0.0, 0.0, 0.0) ) {
+                        gl_FragColor = vec4( 0.2 * sceneColor, 1.0 );
+                    }
+                    else {
+                        gl_FragColor = vec4( uiColor, 1.0 );
+                    }
+                } 
             } `;
     }
 
@@ -126,6 +145,13 @@ export class Blend_Texture_Shader_2D extends Texture_Shader_2D {
         context.uniform1i(gpu_addresses.background_tex, 3);
         context.activeTexture(context["TEXTURE" + 3]);
         context.bindTexture(context.TEXTURE_2D, material.background_tex);
+
+        // set up texture 4, the ui texture
+        context.uniform1i(gpu_addresses.ui_tex, 4);
+        context.activeTexture(context["TEXTURE" + 4]);
+        context.bindTexture(context.TEXTURE_2D, material.ui_tex);
+
+        context.uniform1i(gpu_addresses.draw_ui, material.draw_ui);
     }
 }
 
