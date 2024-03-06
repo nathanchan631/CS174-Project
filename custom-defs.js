@@ -78,10 +78,8 @@ export class Image_Shader_2D extends Texture_Shader_2D {
         context.uniform1i(gpu_addresses.texture, 3);
         context.activeTexture(context["TEXTURE" + 3]);
         material.texture.activate(context, 3);
-        // context.bindTexture(context.TEXTURE_2D, material.texture);
     }
 }
-
 
 
 export class Blend_Texture_Shader_2D extends Texture_Shader_2D {
@@ -94,8 +92,6 @@ export class Blend_Texture_Shader_2D extends Texture_Shader_2D {
             uniform sampler2D non_blurred_tex;
             uniform sampler2D blurred_tex;
             uniform sampler2D background_tex;
-            uniform sampler2D ui_tex;
-            uniform int draw_ui;
 
             void main(){
                 
@@ -108,21 +104,7 @@ export class Blend_Texture_Shader_2D extends Texture_Shader_2D {
                 // add in the color from the blur
                 vec3 bloomColor = texture2D( blurred_tex, f_tex_coord ).xyz;
 
-
-                if (draw_ui == 0) {
-                    gl_FragColor = vec4( sceneColor + bloomColor, 1.0 );
-                }
-
-                else {
-                    vec3 uiColor = texture2D( ui_tex, f_tex_coord ).xyz;
-
-                    if ( uiColor == vec3(0.0, 0.0, 0.0) ) {
-                        gl_FragColor = vec4( 0.2 * sceneColor, 1.0 );
-                    }
-                    else {
-                        gl_FragColor = vec4( uiColor, 1.0 );
-                    }
-                } 
+                gl_FragColor = vec4( sceneColor + bloomColor, 1.0 );
             } `;
     }
 
@@ -145,13 +127,6 @@ export class Blend_Texture_Shader_2D extends Texture_Shader_2D {
         context.uniform1i(gpu_addresses.background_tex, 3);
         context.activeTexture(context["TEXTURE" + 3]);
         context.bindTexture(context.TEXTURE_2D, material.background_tex);
-
-        // set up texture 4, the ui texture
-        context.uniform1i(gpu_addresses.ui_tex, 4);
-        context.activeTexture(context["TEXTURE" + 4]);
-        context.bindTexture(context.TEXTURE_2D, material.ui_tex);
-
-        context.uniform1i(gpu_addresses.draw_ui, material.draw_ui);
     }
 }
 
@@ -182,7 +157,7 @@ export class Blur_Texture_Shader_2D extends Texture_Shader_2D {
                 vec2 textureSize = vec2( 1024.0, 512.0 );
                 vec3 result = texture2D(texture, f_tex_coord).xyz * CalcGauss(0.0); // current fragment's contribution
 
-                for(int i = 1; i < 8; ++i)
+                for(int i = 1; i < 10; ++i)
                 {
                     vec2 offset = blurDirection * float(i) / textureSize; // divide by textureSize for texel size
                     float weight = CalcGauss( float(i) );
@@ -196,7 +171,7 @@ export class Blur_Texture_Shader_2D extends Texture_Shader_2D {
 
     update_GPU(context, gpu_addresses, gpu_state, model_transform, material) {
         // update_GPU(): Add a little more to the base class's version of this method.
-        const defaults = { horizontal: false, sigma: 2.4, intercept: 0.045 };
+        const defaults = { horizontal: false, sigma: 2.8, intercept: 0.037 };
         material = Object.assign({}, defaults, material);
 
         this.send_gpu_state(context, gpu_addresses, gpu_state, model_transform);

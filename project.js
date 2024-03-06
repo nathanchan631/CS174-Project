@@ -23,7 +23,6 @@ import { Simulation } from './simulation.js';
 
 import { Buffered_Texture } from './examples/shadow-demo-shaders.js'
 import { Body } from './examples/collisions-demo.js';
-import { Text_Line } from './examples/text-demo.js';
 
 
 const TEXTURE_BUFFER_SIZE = 2048;
@@ -36,13 +35,12 @@ export class Project extends Simulation {
         this.shapes = {
             sphere: new defs.Subdivision_Sphere(6),
             square: new defs.Square(),
-            cube: new defs.Cube(),
-            text: new Text_Line(100)
+            cube: new defs.Cube()
         };
 
         this.materials = {
-            background: new Material(new Image_Shader_2D(), {
-                texture: new Texture("assets/stars-galaxy.jpg")
+            image_2d: new Material(new Image_Shader_2D(), {
+                texture: null
             }),
 
             blur_tex: new Material(new Blur_Texture_Shader_2D()),
@@ -51,8 +49,6 @@ export class Project extends Simulation {
                 blurred_tex: null,
                 non_blurred_tex: null,
                 background_tex: null,
-                ui_tex: null,
-                draw_ui: 0
             }),
     
             ball: new Material(new Luminscent_Shader(), {
@@ -66,13 +62,13 @@ export class Project extends Simulation {
                 ambient: 0.2,
                 diffusivity: 0.6,
                 specularity: 0.6
-            })
+            }),
         }
 
-        this.text_image = new Material(new defs.Textured_Phong(1), {
-            ambient: 1, diffusivity: 0, specularity: 0,
-            texture: new Texture("assets/text.png")
-        });
+        this.textures = {
+            background: new Texture("assets/stars-galaxy.jpg"),
+            pause_menu: new Texture("assets/paused.png")
+        }
 
         this.screen_transform = Mat4.identity();
         this.ground_transform = Mat4.translation(0,-2,75).times(Mat4.scale(8,1,80));
@@ -181,8 +177,8 @@ export class Project extends Simulation {
         this.framebuffers = [];
         this.texture_size = TEXTURE_BUFFER_SIZE;
 
-        // 0 is for non blurred, 1 and 2 are for blurring, 3 is for background, 4 is the UI
-        for (let i = 0; i < 5; i++) {
+        // 0 is for non blurred, 1 and 2 are for blurring, 3 is for 2d images (background, ui)
+        for (let i = 0; i <= 3; i++) {
 
             // Framebuffer
             let fb = gl.createFramebuffer();
@@ -221,7 +217,9 @@ export class Project extends Simulation {
 
     // render the background. Possible alternative: create a canvas under the tiny graphics one, make the tiny graphics one transparent
     render_background(context, program_state) {
-        this.shapes.square.draw(context, program_state, this.screen_transform, this.materials.background);
+        this.shapes.square.draw(context, program_state, this.screen_transform, this.materials.image_2d.override({
+            texture: this.textures.background
+        }));
     }
 
     // anything here will not be blurred
@@ -239,13 +237,9 @@ export class Project extends Simulation {
     }
 
     render_ui(context, program_state) {
-        // this.shapes.cube.draw(context, program_state, Mat4.translation(0,5,0,0), this.materials.ground.override({ color: color(1,1,1,1) }));
-        let text_transform = Mat4.translation(this.user_sphere.center[0], this.user_sphere.center[1], this.user_sphere.center[2])
-                            .times(Mat4.translation(2,6,0,0))
-                            .times(Mat4.rotation(-.1, 1, 0, 0))
-                            .times(Mat4.scale(-0.5,0.5,0.5));
-        this.shapes.text.set_string("Paused", context.context);
-        this.shapes.text.draw(context, program_state, text_transform, this.text_image);
+        this.shapes.square.draw(context, program_state, this.screen_transform, this.materials.image_2d.override({
+            texture: this.textures.pause_menu
+        }));
     }
 
 
@@ -296,8 +290,6 @@ export class Project extends Simulation {
 
 
         // Render the objects to be blurred
-
-        // Bind the Depth Texture Buffer
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[1]);
         gl.viewport(0, 0, this.texture_size, this.texture_size);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -323,29 +315,75 @@ export class Project extends Simulation {
             this.materials.blur_tex.override({texture: this.buffered_textures[2].texture_buffer_pointer, horizontal: false})
         );
 
-        // draw ui
-        if (this.program_state && !this.program_state.animate) {
-            gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[4]);
+        
+        if (this.program_state.animate) {
+
+            // unbind, draw to the canvas
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            program_state.view_mat = program_state.camera_inverse;
+            program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, 0.5, 500);
+
+            this.shapes.square.draw(context, program_state, this.screen_transform,
+                this.materials.blend_tex.override({
+                    non_blurred_tex: this.buffered_textures[0].texture_buffer_pointer,
+                    blurred_tex: this.buffered_textures[1].texture_buffer_pointer,
+                    background_tex: this.buffered_textures[3].texture_buffer_pointer,
+                })
+            )
+
+        } else {
+            // Combine textures
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[1]);
+            gl.viewport(0, 0, this.texture_size, this.texture_size);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            this.shapes.square.draw(context, program_state, this.screen_transform,
+                this.materials.blend_tex.override({
+                    non_blurred_tex: this.buffered_textures[0].texture_buffer_pointer,
+                    background_tex: this.buffered_textures[3].texture_buffer_pointer
+                })
+            )
+
+            // blur again
+            // Horizontal pass of Gaussian Blur
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[2]);
+            gl.viewport(0, 0, this.texture_size, this.texture_size);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            // display textures
+            this.shapes.square.draw(context, program_state, this.screen_transform,
+                this.materials.blur_tex.override({texture: this.buffered_textures[1].texture_buffer_pointer, horizontal: true})
+            );
+
+            // Repeat with vertical pass
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[1]);
+            gl.viewport(0, 0, this.texture_size, this.texture_size);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            this.shapes.square.draw(context, program_state, this.screen_transform,
+                this.materials.blur_tex.override({texture: this.buffered_textures[2].texture_buffer_pointer, horizontal: false})
+            );
+
+            // Render UI
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[3]);
             gl.viewport(0, 0, this.texture_size, this.texture_size);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
             this.render_ui(context, program_state);
+
+            // Combine
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            program_state.view_mat = program_state.camera_inverse;
+            program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, 0.5, 500);
+
+            this.shapes.square.draw(context, program_state, this.screen_transform,
+                this.materials.blend_tex.override({
+                    non_blurred_tex: this.buffered_textures[3].texture_buffer_pointer,
+                    background_tex: this.buffered_textures[1].texture_buffer_pointer,
+                })
+            )
         }
-
-        // unbind, draw to the canvas
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-        program_state.view_mat = program_state.camera_inverse;
-        program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, 0.5, 500);
-
-        this.shapes.square.draw(context, program_state, this.screen_transform,
-            this.materials.blend_tex.override({
-                non_blurred_tex: this.buffered_textures[0].texture_buffer_pointer,
-                blurred_tex: this.buffered_textures[1].texture_buffer_pointer,
-                background_tex: this.buffered_textures[3].texture_buffer_pointer,
-                ui_tex: this.buffered_textures[4].texture_buffer_pointer,
-                draw_ui: !this.program_state.animate
-            })
-        )
     }
 }
