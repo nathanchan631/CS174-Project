@@ -577,6 +577,13 @@ const Mat4 = tiny.Mat4 =
                 [0, 0, 0, 1]);
         }
 
+        static shear(s_xy, s_xz, s_yx, s_yz, s_zx, s_zy) {
+            return Matrix.of([1, s_xy, s_xz, 0],
+                [s_yx, 1, s_yz, 0],
+                [s_zx, s_zy, 1, 0],
+                [0, 0, 0, 1]);
+        }
+
         static scale(x, y, z) {
             // scale(): Builds and returns a scale matrix using x,y,z.
             return Matrix.of([x, 0, 0, 0],

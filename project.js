@@ -35,7 +35,7 @@ export class Project extends Simulation {
         this.shapes = {
             sphere: new defs.Subdivision_Sphere(6),
             square: new defs.Square(),
-            cube: new defs.Cube()
+            cube: new defs.Cube(),
         };
 
         this.materials = {
@@ -56,10 +56,15 @@ export class Project extends Simulation {
                 shininess: 2.0,
                 glow: 3.0
             }),
-
             ground: new Material(new defs.Phong_Shader(), {
                 color: color(.2,.2,.2,1),
                 ambient: 0.2,
+                diffusivity: 0.6,
+                specularity: 0.6
+            }),
+            path: new Material(new defs.Phong_Shader(), { // Material for the path
+                color: color(0.8, 0.8, 0.8, 1), // Reddish color
+                ambient: 0.4,
                 diffusivity: 0.6,
                 specularity: 0.6
             }),
@@ -71,12 +76,25 @@ export class Project extends Simulation {
         }
 
         this.screen_transform = Mat4.identity();
-        this.ground_transform = Mat4.translation(0,-2,75).times(Mat4.scale(8,1,80));
+
+        // Ground transforms for different paths
+        this.ground_transform = Mat4.translation(0, -2, 75).times(Mat4.scale(10, 1, 70)); // Straight path
+        this.ground_transform1 = Mat4.translation(40, -2, 215).times(Mat4.scale(10, 1, 70)).times(Mat4.shear(0,4,0,0,0,0)); // Sheared left path
+        this.ground_transform2 = Mat4.translation(110, -2, 295).times(Mat4.scale(40, 1, 10)); // Straight Left path
+        this.ground_transform3 = Mat4.translation(110, -2, 335).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,-3,0,0,0,0)); // Sheared Right path
+        this.ground_transform4 = Mat4.translation(110, -2, 395).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,3,0,0,0,0)); // Sheared Right path
+        this.ground_transform5 = Mat4.translation(140, -2, 455).times(Mat4.scale(10, 1, 30)); // Straight
+        this.ground_transform6 = Mat4.translation(110, -2, 515).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,-3,0,0,0,0)); // Sheared Right path
+        this.ground_transform7 = Mat4.translation(65, -2, 555).times(Mat4.scale(25, 1, 10)); // Straight Left path
+        this.ground_transform8 = Mat4.translation(50, -2, 605).times(Mat4.scale(10, 1, 40)); // Straight path
+        this.ground_transform9 = Mat4.translation(25, -2, 675).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,-2.5,0,0,0,0)); // Sheared Right path
+        this.ending = Mat4.translation(0, -2, 735).times(Mat4.scale(30, 1, 30))
+
 
         // To make sure texture initialization only happens once
         this.init_ok = false;
 
-        //movement
+        // movement
         this.front = false;
         this.back = false;
         this.jump = false;
@@ -228,7 +246,17 @@ export class Project extends Simulation {
 
         // Draw the objects
         super.render_scene_normal(context, program_state); // draw simulation objects
-        this.shapes.cube.draw(context, program_state, this.ground_transform, this.materials.ground); // draw ground
+        this.shapes.cube.draw(context, program_state, this.ground_transform, this.materials.ground);
+        this.shapes.cube.draw(context, program_state, this.ground_transform1, this.materials.ground);
+        this.shapes.cube.draw(context, program_state, this.ground_transform2, this.materials.ground);
+        this.shapes.cube.draw(context, program_state, this.ground_transform3, this.materials.ground);
+        this.shapes.cube.draw(context, program_state, this.ground_transform4, this.materials.ground);
+        this.shapes.cube.draw(context, program_state, this.ground_transform5, this.materials.ground);
+        this.shapes.cube.draw(context, program_state, this.ground_transform6, this.materials.ground);
+        this.shapes.cube.draw(context, program_state, this.ground_transform7, this.materials.ground);
+        this.shapes.cube.draw(context, program_state, this.ground_transform8, this.materials.ground);
+        this.shapes.cube.draw(context, program_state, this.ground_transform9, this.materials.ground);
+        this.shapes.cube.draw(context, program_state, this.ending, this.materials.path);
     }
 
     // render stuff to be blurred
