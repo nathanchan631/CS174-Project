@@ -78,17 +78,19 @@ export class Project extends Simulation {
         this.screen_transform = Mat4.identity();
 
         // Ground transforms for different paths
-        this.ground_transform = Mat4.translation(0, -2, 75).times(Mat4.scale(10, 1, 70)); // Straight path
-        this.ground_transform1 = Mat4.translation(40, -2, 215).times(Mat4.scale(10, 1, 70)).times(Mat4.shear(0,4,0,0,0,0)); // Sheared left path
-        this.ground_transform2 = Mat4.translation(110, -2, 295).times(Mat4.scale(40, 1, 10)); // Straight Left path
-        this.ground_transform3 = Mat4.translation(110, -2, 335).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,-3,0,0,0,0)); // Sheared Right path
-        this.ground_transform4 = Mat4.translation(110, -2, 395).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,3,0,0,0,0)); // Sheared Right path
-        this.ground_transform5 = Mat4.translation(140, -2, 455).times(Mat4.scale(10, 1, 30)); // Straight
-        this.ground_transform6 = Mat4.translation(110, -2, 515).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,-3,0,0,0,0)); // Sheared Right path
-        this.ground_transform7 = Mat4.translation(65, -2, 555).times(Mat4.scale(25, 1, 10)); // Straight Left path
-        this.ground_transform8 = Mat4.translation(50, -2, 605).times(Mat4.scale(10, 1, 40)); // Straight path
-        this.ground_transform9 = Mat4.translation(25, -2, 675).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,-2.5,0,0,0,0)); // Sheared Right path
-        this.ending = Mat4.translation(0, -2, 735).times(Mat4.scale(30, 1, 30))
+        this.ground_transform = Mat4.translation(0, -2, 20).times(Mat4.scale(5, .2, 50)); // Straight path
+        // this.ground_transform1 = Mat4.translation(40, -2, 215).times(Mat4.scale(10, 1, 70)).times(Mat4.shear(0,4,0,0,0,0)); // Sheared left path
+        // this.ground_transform2 = Mat4.translation(110, -2, 295).times(Mat4.scale(40, 1, 10)); // Straight Left path
+        // this.ground_transform3 = Mat4.translation(110, -2, 335).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,-3,0,0,0,0)); // Sheared Right path
+        // this.ground_transform4 = Mat4.translation(110, -2, 395).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,3,0,0,0,0)); // Sheared Right path
+        // this.ground_transform5 = Mat4.translation(140, -2, 455).times(Mat4.scale(10, 1, 30)); // Straight
+        // this.ground_transform6 = Mat4.translation(110, -2, 515).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,-3,0,0,0,0)); // Sheared Right path
+        // this.ground_transform7 = Mat4.translation(65, -2, 555).times(Mat4.scale(25, 1, 10)); // Straight Left path
+        // this.ground_transform8 = Mat4.translation(50, -2, 605).times(Mat4.scale(10, 1, 40)); // Straight path
+        // this.ground_transform9 = Mat4.translation(25, -2, 675).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,-2.5,0,0,0,0)); // Sheared Right path
+        // this.ending = Mat4.translation(0, -2, 735).times(Mat4.scale(30, 1, 30));
+        
+
 
 
         // To make sure texture initialization only happens once
@@ -100,6 +102,7 @@ export class Project extends Simulation {
         this.jump = false;
         this.left = false;
         this.right = false;
+        this.fallingofflock = false;
 
         this.restart = false;
 
@@ -123,9 +126,15 @@ export class Project extends Simulation {
             this.user_sphere = new Body(this.shapes.sphere, this.materials.ball, vec3(0.65, 0.65, 0.65))
                 .emplace(Mat4.translation(...vec3(0, 0, 0)), vec3(0, 0, 0), 0);
         
-        while(this.bodies.length < 1)
-            this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(0,1,0,1)}), vec3(0.65, 0.65, 0.65))
-                .emplace(Mat4.translation(...vec3(5, 0, 0)), vec3(0, 0, 0), 0));
+
+        
+        while(this.bodies.length < 2)  
+        {
+            this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(0,1,0,1)}), vec3(1, 1, 1))
+                .emplace(Mat4.translation(...vec3(-4, 0, 0)), vec3(-4, 4, 4), 0));
+            this.bodies.push(new Body(this.shapes.sphere, this.materials.ball.override({color: color(0,0,1,1)}), vec3(1, 1, 1))
+                .emplace(Mat4.translation(...vec3(4, 0, 0)), vec3(-4, 40, 4), 0));
+        }
 
 
         // left, right, forward, backward
@@ -153,7 +162,7 @@ export class Project extends Simulation {
         this.user_sphere.linear_velocity[1] += dt * -4.5;
 
         // If about to fall through floor, set y velocity to 0
-        if (this.user_sphere.center[1] < this.floor_y && this.user_sphere.linear_velocity[1] < 0)
+        if (this.user_sphere.center[1] < this.floor_y && this.user_sphere.linear_velocity[1] < 0 && !this.fallingofflock)
             this.user_sphere.linear_velocity[1] = 0;
 
         
@@ -181,6 +190,50 @@ export class Project extends Simulation {
                 continue;
 
             this.reset();
+        }
+
+
+        //checking if on platform
+        // console.log(this.ground_transform);
+
+        // Extracting translation components
+        const translationX = this.ground_transform[0][3]; // Translation along the X-axis
+        const translationZ = this.ground_transform[2][3]; // Translation along the Z-axis
+
+        // Extracting scaling components
+        const scaleX = this.ground_transform[0][0]; // Scaling along the X-axis
+        const scaleZ = this.ground_transform[2][2]; // Scaling along the Z-axis
+
+        // Calculate x boundaries
+        const minX = translationX - scaleX;
+        const maxX = translationX + scaleX;
+
+        // Calculate y boundaries
+        const minZ = translationZ - scaleZ - 5;
+        const maxZ = translationZ + scaleZ - 5;
+
+
+        if(this.user_sphere != null)
+        {
+            if(this.user_sphere.center[0] > maxX || this.user_sphere.center[0]<minX)
+            {
+                this.fallingofflock = true;
+                this.user_sphere.linear_velocity[1] += dt * -.1;
+                setTimeout(() => {
+                    this.reset();
+                    this.fallingofflock = false;
+
+                }, 600);
+            }
+            else if(this.user_sphere.center[2] > maxZ || this.user_sphere.center[2] <minZ)
+            {
+                this.fallingofflock = true;
+                this.user_sphere.linear_velocity[1] += dt * -.1;
+                setTimeout(() => {
+                    this.reset();
+                    this.fallingofflock = false;
+                }, 600);
+            }
         }
     }
 
@@ -247,16 +300,16 @@ export class Project extends Simulation {
         // Draw the objects
         super.render_scene_normal(context, program_state); // draw simulation objects
         this.shapes.cube.draw(context, program_state, this.ground_transform, this.materials.ground);
-        this.shapes.cube.draw(context, program_state, this.ground_transform1, this.materials.ground);
-        this.shapes.cube.draw(context, program_state, this.ground_transform2, this.materials.ground);
-        this.shapes.cube.draw(context, program_state, this.ground_transform3, this.materials.ground);
-        this.shapes.cube.draw(context, program_state, this.ground_transform4, this.materials.ground);
-        this.shapes.cube.draw(context, program_state, this.ground_transform5, this.materials.ground);
-        this.shapes.cube.draw(context, program_state, this.ground_transform6, this.materials.ground);
-        this.shapes.cube.draw(context, program_state, this.ground_transform7, this.materials.ground);
-        this.shapes.cube.draw(context, program_state, this.ground_transform8, this.materials.ground);
-        this.shapes.cube.draw(context, program_state, this.ground_transform9, this.materials.ground);
-        this.shapes.cube.draw(context, program_state, this.ending, this.materials.path);
+        // this.shapes.cube.draw(context, program_state, this.ground_transform1, this.materials.ground);
+        // this.shapes.cube.draw(context, program_state, this.ground_transform2, this.materials.ground);
+        // this.shapes.cube.draw(context, program_state, this.ground_transform3, this.materials.ground);
+        // this.shapes.cube.draw(context, program_state, this.ground_transform4, this.materials.ground);
+        // this.shapes.cube.draw(context, program_state, this.ground_transform5, this.materials.ground);
+        // this.shapes.cube.draw(context, program_state, this.ground_transform6, this.materials.ground);
+        // this.shapes.cube.draw(context, program_state, this.ground_transform7, this.materials.ground);
+        // this.shapes.cube.draw(context, program_state, this.ground_transform8, this.materials.ground);
+        // this.shapes.cube.draw(context, program_state, this.ground_transform9, this.materials.ground);
+        // this.shapes.cube.draw(context, program_state, this.ending, this.materials.path);
     }
 
     // render stuff to be blurred
