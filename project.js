@@ -59,8 +59,8 @@ export class Project extends Simulation {
             ground: new Material(new defs.Phong_Shader(), {
                 color: color(.2,.2,.2,1),
                 ambient: 0.2,
-                diffusivity: 0.6,
-                specularity: 0.6
+                diffusivity: 1,
+                specularity: 1
             }),
             path: new Material(new defs.Phong_Shader(), { // Material for the path
                 color: color(0.8, 0.8, 0.8, 1), // Reddish color
@@ -78,20 +78,21 @@ export class Project extends Simulation {
         this.screen_transform = Mat4.identity();
 
         // Ground transforms for different paths
-        this.ground_transform = Mat4.translation(0, -2, 20).times(Mat4.scale(5, .2, 50)); // Straight path
-        // this.ground_transform1 = Mat4.translation(40, -2, 215).times(Mat4.scale(10, 1, 70)).times(Mat4.shear(0,4,0,0,0,0)); // Sheared left path
-        // this.ground_transform2 = Mat4.translation(110, -2, 295).times(Mat4.scale(40, 1, 10)); // Straight Left path
-        // this.ground_transform3 = Mat4.translation(110, -2, 335).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,-3,0,0,0,0)); // Sheared Right path
-        // this.ground_transform4 = Mat4.translation(110, -2, 395).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,3,0,0,0,0)); // Sheared Right path
-        // this.ground_transform5 = Mat4.translation(140, -2, 455).times(Mat4.scale(10, 1, 30)); // Straight
-        // this.ground_transform6 = Mat4.translation(110, -2, 515).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,-3,0,0,0,0)); // Sheared Right path
-        // this.ground_transform7 = Mat4.translation(65, -2, 555).times(Mat4.scale(25, 1, 10)); // Straight Left path
-        // this.ground_transform8 = Mat4.translation(50, -2, 605).times(Mat4.scale(10, 1, 40)); // Straight path
-        // this.ground_transform9 = Mat4.translation(25, -2, 675).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,-2.5,0,0,0,0)); // Sheared Right path
-        // this.ending = Mat4.translation(0, -2, 735).times(Mat4.scale(30, 1, 30));
+        this.platforms = [
+            Mat4.translation(0, -2, 35).times(Mat4.scale(5, 1, 50)),                                        // Straight path
+            Mat4.translation(40, -2, 155).times(Mat4.scale(10, 1, 70)).times(Mat4.shear(0,4,0,0,0,0)),      // Sheared left path
+            Mat4.translation(110, -2, 235).times(Mat4.scale(40, 1, 10)),                                    // Straight Left path
+            Mat4.translation(110, -2, 275).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,-3,0,0,0,0)),    // Sheared Right path
+            Mat4.translation(110, -2, 325).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,3,0,0,0,0)),     // Sheared Right path
+            Mat4.translation(140, -2, 385).times(Mat4.scale(10, 1, 30)),                                    // Straight
+            Mat4.translation(110, -2, 445).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,-3,0,0,0,0)),    // Sheared Right path
+            Mat4.translation(65, -2, 485).times(Mat4.scale(25, 1, 10)),                                     // Straight Left path
+            Mat4.translation(50, -2, 535).times(Mat4.scale(10, 1, 40)),                                     // Straight path
+            Mat4.translation(25, -2, 605).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,-2.5,0,0,0,0)),   // Sheared Right path
+        ]
+
+        this.ending = Mat4.translation(0, -2, 665).times(Mat4.scale(30, 1, 30));
         
-
-
 
         // To make sure texture initialization only happens once
         this.init_ok = false;
@@ -184,56 +185,52 @@ export class Project extends Simulation {
         // if (this.user_sphere.linear_velocity.norm() == 0)
         //     return;
 
-        // TODO: this collision algorithm is really bad
-        for (let b of this.bodies) {
-            if (this.user_sphere != null && !this.user_sphere.check_if_colliding(b, collider))
-                continue;
+        // collision with obstacles
+        for (let b of this.bodies)
+            if (this.user_sphere != null && this.user_sphere.check_if_colliding(b, collider))
+                this.reset();
 
-            this.reset();
+        // checking if on platform
+
+        // this function solves player = backRightVec * x + frontLeftVec * y using Cramer's rule
+        // and tests that x and y are between 0 and 1
+        function playerOnPlatform(player, platform) {
+            const backLeft = platform.times(vec4(-1, 1, 1, 1));
+
+            const backRightVec = platform.times(vec4(1, 1, 1, 1)).minus(backLeft);
+            const frontLeftVec = platform.times(vec4(-1, 1, -1, 1)).minus(backLeft);
+            const playerVec = player.minus(backLeft);
+
+            const determinant = backRightVec[0] * frontLeftVec[2] - backRightVec[2] * frontLeftVec[0];
+            
+            // The solution doesn't exist
+            if (determinant === 0)
+                return false;
+            
+        
+            const detX = playerVec[0] * frontLeftVec[2] - playerVec[2] * frontLeftVec[0];
+            const detY = backRightVec[0] * playerVec[2] - backRightVec[2] * playerVec[0];
+        
+            const x = detX / determinant;
+            const y = detY / determinant;
+        
+            // Check if x and y are between 0 and 1
+            return x >= 0 && x <= 1 && y >= 0 && y <= 1;
         }
+        
+        // if player is not touching any platforms or the ending
+        if (this.user_sphere != null && !(
+            this.platforms.some((platform) => playerOnPlatform(this.user_sphere.center, platform)) ||
+            playerOnPlatform(this.user_sphere.center, this.ending)
+        )) {
 
+            this.fallingofflock = true;
+            this.user_sphere.linear_velocity[1] += dt * -.1;
+            setTimeout(() => {
+                this.reset();
+                this.fallingofflock = false;
 
-        //checking if on platform
-        // console.log(this.ground_transform);
-
-        // Extracting translation components
-        const translationX = this.ground_transform[0][3]; // Translation along the X-axis
-        const translationZ = this.ground_transform[2][3]; // Translation along the Z-axis
-
-        // Extracting scaling components
-        const scaleX = this.ground_transform[0][0]; // Scaling along the X-axis
-        const scaleZ = this.ground_transform[2][2]; // Scaling along the Z-axis
-
-        // Calculate x boundaries
-        const minX = translationX - scaleX;
-        const maxX = translationX + scaleX;
-
-        // Calculate y boundaries
-        const minZ = translationZ - scaleZ - 5;
-        const maxZ = translationZ + scaleZ - 5;
-
-
-        if(this.user_sphere != null)
-        {
-            if(this.user_sphere.center[0] > maxX || this.user_sphere.center[0]<minX)
-            {
-                this.fallingofflock = true;
-                this.user_sphere.linear_velocity[1] += dt * -.1;
-                setTimeout(() => {
-                    this.reset();
-                    this.fallingofflock = false;
-
-                }, 500);
-            }
-            else if(this.user_sphere.center[2] > maxZ || this.user_sphere.center[2] <minZ)
-            {
-                this.fallingofflock = true;
-                this.user_sphere.linear_velocity[1] += dt * -.1;
-                setTimeout(() => {
-                    this.reset();
-                    this.fallingofflock = false;
-                }, 600);
-            }
+            }, 500);
         }
     }
 
@@ -248,8 +245,8 @@ export class Project extends Simulation {
         this.framebuffers = [];
         this.texture_size = TEXTURE_BUFFER_SIZE;
 
-        // 0 is for non blurred, 1 and 2 are for blurring, 3 is for 2d images (background, ui)
-        for (let i = 0; i <= 3; i++) {
+        // 0 is for non blurred, 1 and 2 are for blurring, 3 is for 2d images (background, ui), 4 is for compositing
+        for (let i = 0; i <= 4; i++) {
 
             // Framebuffer
             let fb = gl.createFramebuffer();
@@ -299,17 +296,11 @@ export class Project extends Simulation {
 
         // Draw the objects
         super.render_scene_normal(context, program_state); // draw simulation objects
-        this.shapes.cube.draw(context, program_state, this.ground_transform, this.materials.ground);
-        // this.shapes.cube.draw(context, program_state, this.ground_transform1, this.materials.ground);
-        // this.shapes.cube.draw(context, program_state, this.ground_transform2, this.materials.ground);
-        // this.shapes.cube.draw(context, program_state, this.ground_transform3, this.materials.ground);
-        // this.shapes.cube.draw(context, program_state, this.ground_transform4, this.materials.ground);
-        // this.shapes.cube.draw(context, program_state, this.ground_transform5, this.materials.ground);
-        // this.shapes.cube.draw(context, program_state, this.ground_transform6, this.materials.ground);
-        // this.shapes.cube.draw(context, program_state, this.ground_transform7, this.materials.ground);
-        // this.shapes.cube.draw(context, program_state, this.ground_transform8, this.materials.ground);
-        // this.shapes.cube.draw(context, program_state, this.ground_transform9, this.materials.ground);
-        // this.shapes.cube.draw(context, program_state, this.ending, this.materials.path);
+
+        for (let platform of this.platforms)
+            this.shapes.cube.draw(context, program_state, platform, this.materials.ground);
+
+        this.shapes.cube.draw(context, program_state, this.ending, this.materials.path);
     }
 
     // render stuff to be blurred
@@ -369,7 +360,7 @@ export class Project extends Simulation {
         
         this.render_scene_normal(context, program_state);
 
-
+        
         // Render the objects to be blurred
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[1]);
         gl.viewport(0, 0, this.texture_size, this.texture_size);
