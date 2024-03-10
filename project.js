@@ -107,7 +107,7 @@ export class Project extends Simulation {
 
         this.restart = false;
 
-        this.floor_y = 0;
+        this.floor_y = -0.35;
     }
 
     reset() {
@@ -246,7 +246,7 @@ export class Project extends Simulation {
         this.texture_size = TEXTURE_BUFFER_SIZE;
 
         // 0 is for non blurred, 1 and 2 are for blurring, 3 is for 2d images (background, ui), 4 is for compositing
-        for (let i = 0; i <= 4; i++) {
+        for (let i = 0; i <= 3; i++) {
 
             // Framebuffer
             let fb = gl.createFramebuffer();
