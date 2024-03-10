@@ -25,9 +25,9 @@ export class Simulation extends Scene {
         
         // Make simpler dummy shapes for representing all other shapes during collisions:
         this.colliders = [
-            { intersect_test: intersect_sphere, points: new defs.Subdivision_Sphere(10), leeway: 0.1 },
-            { intersect_test: intersect_sphere, points: new defs.Subdivision_Sphere(5), leeway: 0.5 },
-            { intersect_test: intersect_cube, points: new defs.Cube(), leeway: 0.1 }
+            {intersect_test: Body.intersect_sphere, points: new defs.Subdivision_Sphere(5), leeway: .1},
+            {intersect_test: Body.intersect_sphere, points: new defs.Subdivision_Sphere(2), leeway: 1},
+            {intersect_test: Body.intersect_cube, points: new defs.Cube(), leeway: .1}
         ];
         this.collider_selection = 0;
     }

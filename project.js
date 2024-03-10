@@ -223,7 +223,7 @@ export class Project extends Simulation {
                     this.reset();
                     this.fallingofflock = false;
 
-                }, 600);
+                }, 500);
             }
             else if(this.user_sphere.center[2] > maxZ || this.user_sphere.center[2] <minZ)
             {
