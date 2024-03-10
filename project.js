@@ -107,7 +107,7 @@ export class Project extends Simulation {
 
         this.restart = false;
 
-        this.floor_y = 0;
+        this.floor_y = -0.35;
     }
 
     reset() {
