@@ -16,13 +16,14 @@ const {
 } = tiny;
 
 import {
-    Luminscent_Shader, Texture_Shader_2D, Image_Shader_2D, Blend_Texture_Shader_2D, Blur_Texture_Shader_2D
+    Luminscent_Shader, Texture_Shader_2D, Image_Shader_2D, Blend_Texture_Shader_2D, Blur_Texture_Shader_2D, Text_Shader_2D
 } from './custom-defs.js'
 
 import { Simulation } from './simulation.js';
 
 import { Buffered_Texture } from './examples/shadow-demo-shaders.js'
 import { Body } from './examples/collisions-demo.js';
+import { Text_Line } from './examples/text-demo.js';
 
 
 const TEXTURE_BUFFER_SIZE = 2048;
@@ -36,6 +37,7 @@ export class Project extends Simulation {
             sphere: new defs.Subdivision_Sphere(6),
             square: new defs.Square(),
             cube: new defs.Cube(),
+            text: new Text_Line(50)
         };
 
         this.materials = {
@@ -62,20 +64,26 @@ export class Project extends Simulation {
                 diffusivity: 1,
                 specularity: 1
             }),
-            path: new Material(new defs.Phong_Shader(), { // Material for the path
-                color: color(0.8, 0.8, 0.8, 1), // Reddish color
-                ambient: 0.4,
-                diffusivity: 0.6,
-                specularity: 0.6
+            path: new Material(new Luminscent_Shader(), {
+                color: color(1, 1, 1, 1),
+                shininess: 2.0,
+                glow: 3.0
             }),
+            text_image: new Material(new Text_Shader_2D(1), {
+                texture: new Texture("assets/text.png")
+            })
         }
 
         this.textures = {
             background: new Texture("assets/stars-galaxy.jpg"),
-            pause_menu: new Texture("assets/paused.png")
+            pause_menu: new Texture("assets/paused.png"),
+            completed_menu: new Texture("assets/complete.png"),
+            text: new Texture("assets/text.png")
         }
 
+
         this.screen_transform = Mat4.identity();
+        this.timer_transform = Mat4.translation(0.62, 0.85, 0).times(Mat4.scale(0.022, 0.05, 0.05))
 
         // Ground transforms for different paths
         this.platforms = [
@@ -108,6 +116,10 @@ export class Project extends Simulation {
         this.restart = false;
 
         this.floor_y = -0.35;
+
+        this.last_reset = 0;
+        this.ui_tex = this.textures.pause_menu;
+        this.completed = false;
     }
 
     reset() {
@@ -117,6 +129,48 @@ export class Project extends Simulation {
         this.back = false;
         this.right = false;
         this.left = false;
+
+        this.last_reset = this.program_state.animation_time / 1000;
+        this.ui_tex = this.textures.pause_menu;
+        this.completed = false;
+        this.program_state.animate = true;
+    }
+
+    make_control_panel() {
+        // make_control_panel(): Create the buttons for interacting with simulation time.
+
+        this.program_state = {};
+
+        this.key_triggered_button("Restart", ["r"], () => this.reset());
+        this.key_triggered_button("Pause/Resume", ["p"], () => { 
+            if (!this.completed)
+                this.program_state.animate ^= 1
+        });
+
+        // this.key_triggered_button("Speed up time", ["Shift", "T"], () => this.time_scale *= 5);
+        // this.key_triggered_button("Slow down time", ["t"], () => this.time_scale /= 5);
+        this.key_triggered_button("Jump", ["u"], () => this.jump = true);
+        this.key_triggered_button("Forward", ["w"], () => this.front = true, '#6E6460', () => this.front = false);
+        this.key_triggered_button("Forward", ["ArrowUp"], () => this.front = true, '#6E6460', () => this.front = false);
+        this.key_triggered_button("Backward", ["s"], () => this.back = true, '#6E6460', () => this.back = false);
+        this.key_triggered_button("Backward", ["ArrowDown"], () => this.back = true, '#6E6460', () => this.back = false);
+        this.key_triggered_button("Right", ["d"], () => this.right = true, '#6E6460', () => this.right = false);
+        this.key_triggered_button("Right", ["ArrowRight"], () => this.right = true, '#6E6460', () => this.right = false);
+        this.key_triggered_button("Left", ["a"], () => this.left = true, '#6E6460', () => this.left = false);
+        this.key_triggered_button("Left", ["ArrowLeft"], () => this.left = true, '#6E6460', () => this.left = false);
+        
+        // this.new_line();
+        // this.live_string(box => {
+        //     box.textContent = "Time scale: " + this.time_scale
+        // });
+        // this.new_line();
+        // this.live_string(box => {
+        //     box.textContent = "Fixed simulation time step size: " + this.dt
+        // });
+        // this.new_line();
+        // this.live_string(box => {
+        //     box.textContent = this.steps_taken + " timesteps were taken so far."
+        // });
     }
 
     update_state(dt) {
@@ -127,7 +181,6 @@ export class Project extends Simulation {
             this.user_sphere = new Body(this.shapes.sphere, this.materials.ball, vec3(0.65, 0.65, 0.65))
                 .emplace(Mat4.translation(...vec3(0, 0, 0)), vec3(0, 0, 0), 0);
         
-
         
         while(this.bodies.length < 2)  
         {
@@ -218,19 +271,26 @@ export class Project extends Simulation {
             return x >= 0 && x <= 1 && y >= 0 && y <= 1;
         }
         
-        // if player is not touching any platforms or the ending
-        if (this.user_sphere != null && !(
-            this.platforms.some((platform) => playerOnPlatform(this.user_sphere.center, platform)) ||
-            playerOnPlatform(this.user_sphere.center, this.ending)
-        )) {
 
-            this.fallingofflock = true;
-            this.user_sphere.linear_velocity[1] += dt * -.1;
-            setTimeout(() => {
-                this.reset();
-                this.fallingofflock = false;
+        if (this.user_sphere != null) {
+            // finished
+            if (playerOnPlatform(this.user_sphere.center, this.ending)) {
+                this.ui_tex = this.textures.completed_menu;
+                this.program_state.animate = false;
+                this.completed = true;
+            }
 
-            }, 500);
+            // not on any platforms
+            else if (!this.platforms.some((platform) => playerOnPlatform(this.user_sphere.center, platform))) {
+
+                this.fallingofflock = true;
+                this.user_sphere.linear_velocity[1] += dt * -.1;
+                setTimeout(() => {
+                    this.reset();
+                    this.fallingofflock = false;
+
+                }, 500);
+            }
         }
     }
 
@@ -301,6 +361,12 @@ export class Project extends Simulation {
             this.shapes.cube.draw(context, program_state, platform, this.materials.ground);
 
         this.shapes.cube.draw(context, program_state, this.ending, this.materials.path);
+
+
+        // timer
+        const time_elapsed = Math.floor(program_state.animation_time/1000 - this.last_reset);
+        this.shapes.text.set_string("Time: " + time_elapsed + "s", context.context);
+        this.shapes.text.draw(context, program_state, this.timer_transform, this.materials.text_image);
     }
 
     // render stuff to be blurred
@@ -310,7 +376,7 @@ export class Project extends Simulation {
 
     render_ui(context, program_state) {
         this.shapes.square.draw(context, program_state, this.screen_transform, this.materials.image_2d.override({
-            texture: this.textures.pause_menu
+            texture: this.ui_tex
         }));
     }
 

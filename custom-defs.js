@@ -3,6 +3,75 @@ const {vec3, vec4, vec, color, Matrix, Mat4, Light, Shape, Material, Shader, Tex
 const {Cube, Axis_Arrows, Textured_Phong, Phong_Shader, Basic_Shader, Subdivision_Sphere} = defs
 
 
+export class Text_Shader_2D extends defs.Textured_Phong {
+
+    shared_glsl_code() {
+        return `
+            precision mediump float;
+            uniform vec4 shape_color;
+        `;
+    }
+ 
+    vertex_glsl_code() {
+        // ********* VERTEX SHADER *********
+        return this.shared_glsl_code() + `
+            attribute vec3 position, normal;                            
+            // Position is expressed in object coordinates.
+            attribute vec2 texture_coord;
+            varying vec2 f_tex_coord;
+            
+            uniform mat4 model_transform;
+            uniform mat4 projection_camera_model_transform;
+    
+            void main(){                                                                   
+                // The vertex's final resting place (in NDCS):
+                gl_Position = model_transform * vec4( position, 1.0 );
+
+                f_tex_coord = texture_coord;
+              } `;
+    }
+
+    fragment_glsl_code() {
+        // ********* FRAGMENT SHADER *********
+        // A fragment is a pixel that's overlapped by the current triangle.
+        // Fragments affect the final image or get discarded due to depth.
+        return this.shared_glsl_code() + `
+            uniform sampler2D texture;
+            varying vec2 f_tex_coord;
+    
+            void main(){
+                // Sample the texture image in the correct place:
+                vec4 tex_color = texture2D( texture, f_tex_coord );
+                if( tex_color.w < .01 ) discard;
+
+                gl_FragColor = vec4( ( tex_color.xyz + shape_color.xyz ) * 2.0, shape_color.w * tex_color.w ); 
+              } `;
+    }
+
+    send_gpu_state(gl, gpu, gpu_state, model_transform) {
+        // send_gpu_state():  Send the state of our whole drawing context to the GPU.
+        gl.uniformMatrix4fv(gpu.model_transform, false, Matrix.flatten_2D_to_1D(model_transform.transposed()));
+    }
+
+    update_GPU(context, gpu_addresses, gpu_state, model_transform, material) {
+        // update_GPU(): Add a little more to the base class's version of this method.
+
+        const defaults = {color: color(0, 0, 0, 1)};
+        material = Object.assign({}, defaults, material);
+
+        context.uniform4fv(gpu_addresses.shape_color, material.color);
+        this.send_gpu_state(context, gpu_addresses, gpu_state, model_transform);
+
+        if (material.texture && material.texture.ready) {
+            // Select texture unit 0 for the fragment shader Sampler2D uniform called "texture":
+            context.uniform1i(gpu_addresses.texture, 0);
+            // For this draw, use the texture image from correct the GPU buffer:
+            material.texture.activate(context);
+        }
+    }
+}
+
+
 export class Texture_Shader_2D extends Shader {
     shared_glsl_code() {
         // ********* SHARED CODE, INCLUDED IN BOTH SHADERS *********
@@ -20,7 +89,6 @@ export class Texture_Shader_2D extends Shader {
             attribute vec2 texture_coord;
             
             uniform mat4 model_transform;
-            uniform mat4 projection_camera_model_transform;
     
             void main(){                                                                   
                 // The vertex's final resting place (in NDCS):
@@ -50,9 +118,7 @@ export class Texture_Shader_2D extends Shader {
         // cache and send those.  They will be the same throughout this draw
         // call, and thus across each instance of the vertex shader.
         // Transpose them since the GPU expects matrices as column-major arrays.
-        const PCM = gpu_state.projection_transform.times(gpu_state.camera_inverse).times(model_transform);
         gl.uniformMatrix4fv(gpu.model_transform, false, Matrix.flatten_2D_to_1D(model_transform.transposed()));
-        gl.uniformMatrix4fv(gpu.projection_camera_model_transform, false, Matrix.flatten_2D_to_1D(PCM.transposed()));
     }
 
     update_GPU(context, gpu_addresses, gpu_state, model_transform, material) {
