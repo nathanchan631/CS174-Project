@@ -149,7 +149,7 @@ export class Project extends Simulation {
 
         // this.key_triggered_button("Speed up time", ["Shift", "T"], () => this.time_scale *= 5);
         // this.key_triggered_button("Slow down time", ["t"], () => this.time_scale /= 5);
-        this.key_triggered_button("Jump", ["u"], () => this.jump = true);
+        this.key_triggered_button("Jump", [" "], () => this.jump = true);
         this.key_triggered_button("Forward", ["w"], () => this.front = true, '#6E6460', () => this.front = false);
         this.key_triggered_button("Forward", ["ArrowUp"], () => this.front = true, '#6E6460', () => this.front = false);
         this.key_triggered_button("Backward", ["s"], () => this.back = true, '#6E6460', () => this.back = false);
@@ -191,20 +191,20 @@ export class Project extends Simulation {
         }
 
 
-        // left, right, forward, backward
+        // increase movement speed if switching direction (drifting)
         let movement_speed = .4;
 
         if (this.left)
-            this.user_sphere.linear_velocity[0] += dt * movement_speed;
+            this.user_sphere.linear_velocity[0] += dt * movement_speed * (this.user_sphere.linear_velocity[0] < 0 ? 1.7 : 1);
 
         if (this.right)
-            this.user_sphere.linear_velocity[0] -= dt * movement_speed;
+            this.user_sphere.linear_velocity[0] -= dt * movement_speed * (this.user_sphere.linear_velocity[0] > 0 ? 1.7 : 1);
 
         if (this.front)
-            this.user_sphere.linear_velocity[2] += dt * movement_speed;
+            this.user_sphere.linear_velocity[2] += dt * movement_speed * (this.user_sphere.linear_velocity[2] < 0 ? 1.7 : 1);
         
         if (this.back)
-            this.user_sphere.linear_velocity[2] -= dt * movement_speed;
+            this.user_sphere.linear_velocity[2] -= dt * movement_speed * (this.user_sphere.linear_velocity[2] > 0 ? 1.7 : 1);
 
 
         // Gravity on Earth, where 1 unit in world space = 1 meter:
@@ -216,7 +216,7 @@ export class Project extends Simulation {
         this.user_sphere.linear_velocity[1] += dt * -4.5;
 
         // If about to fall through floor, set y velocity to 0
-        if (this.user_sphere.center[1] < this.floor_y && this.user_sphere.linear_velocity[1] < 0 && !this.fallingofflock)
+        if (this.user_sphere.center[1] <= this.floor_y && this.user_sphere.linear_velocity[1] < 0 && !this.fallingofflock)
             this.user_sphere.linear_velocity[1] = 0;
 
         
@@ -272,7 +272,8 @@ export class Project extends Simulation {
         }
         
 
-        if (this.user_sphere != null) {
+        // margin = .02
+        if (this.user_sphere != null && this.user_sphere.center[1] <= this.floor_y + .02) {
             // finished
             if (playerOnPlatform(this.user_sphere.center, this.ending)) {
                 this.ui_tex = this.textures.completed_menu;
