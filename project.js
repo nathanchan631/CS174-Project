@@ -59,7 +59,7 @@ export class Project extends Simulation {
                 glow: 3.0
             }),
             ground: new Material(new defs.Phong_Shader(), {
-                color: color(.2,.2,.2,1),
+                color: color(.5,.5,.5,1),
                 ambient: 0.2,
                 diffusivity: 1,
                 specularity: 1
@@ -87,11 +87,11 @@ export class Project extends Simulation {
 
         // Ground transforms for different paths
         this.platforms = [
-            Mat4.translation(0, -2, 35).times(Mat4.scale(5, 1, 50)),                                        // Straight path
+            Mat4.translation(0, -2, 35).times(Mat4.scale(10, 1, 50)),                                        // Straight path
             Mat4.translation(40, -2, 155).times(Mat4.scale(10, 1, 70)).times(Mat4.shear(0,4,0,0,0,0)),      // Sheared left path
             Mat4.translation(110, -2, 235).times(Mat4.scale(40, 1, 10)),                                    // Straight Left path
             Mat4.translation(110, -2, 275).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,-3,0,0,0,0)),    // Sheared Right path
-            Mat4.translation(110, -2, 325).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,3,0,0,0,0)),     // Sheared Right path
+            Mat4.translation(110, -2, 325).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,3,0,0,0,0)),     // Sheared left path
             Mat4.translation(140, -2, 385).times(Mat4.scale(10, 1, 30)),                                    // Straight
             Mat4.translation(110, -2, 445).times(Mat4.scale(10, 1, 30)).times(Mat4.shear(0,-3,0,0,0,0)),    // Sheared Right path
             Mat4.translation(65, -2, 485).times(Mat4.scale(25, 1, 10)),                                     // Straight Left path
@@ -182,12 +182,38 @@ export class Project extends Simulation {
                 .emplace(Mat4.translation(...vec3(0, 0, 0)), vec3(0, 0, 0), 0);
         
         
-        while(this.bodies.length < 2)  
+        while(this.bodies.length < 16)
         {
-            this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(0,1,0,1)}), vec3(1, 1, 1))
+            this.bodies.push(new Body(this.shapes.sphere, this.materials.ball.override({color: color(0,0,1,1)}), vec3(1, 1, 1))
                 .emplace(Mat4.translation(...vec3(-4, 0, 0)), vec3(-4, 4, 4), 0));
             this.bodies.push(new Body(this.shapes.sphere, this.materials.ball.override({color: color(0,0,1,1)}), vec3(1, 1, 1))
                 .emplace(Mat4.translation(...vec3(4, 0, 0)), vec3(-4, 40, 4), 0));
+            this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(0,1,0,1)}), vec3(1, 1, 1))
+                .emplace(Mat4.translation(...vec3(0, 0, 40)).times(Mat4.scale(10, 1, 2)), vec3(-4, 4, 4), 0));
+            this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(0,1,0,1)}), vec3(1, 1, 1))
+                .emplace(Mat4.translation(...vec3(0, 0, 70)).times(Mat4.scale(10, 1, 2)), vec3(-4, 4, 4), 0));
+            this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(0,1,1,1)}), vec3(1, 1, 1))
+                .emplace(Mat4.translation(...vec3(20, 0, 109)).times(Mat4.scale(1, 3, 4)), vec3(-4, 4, 4), 0));
+            this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(0,1,1,1)}), vec3(1, 1, 1))
+                .emplace(Mat4.translation(...vec3(20, 0, 131)).times(Mat4.scale(1, 3, 4)), vec3(-4, 4, 4), 0));
+            this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(1,1,0,1)}), vec3(1, 1, 1))
+                .emplace(Mat4.translation(...vec3(50, 0, 190)).times(Mat4.scale(3, 3, 0.6)), vec3(-4, 4, 4), 0));
+            this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(1,1,0,1)}), vec3(1, 1, 1))
+                .emplace(Mat4.translation(...vec3(57, 0, 190)).times(Mat4.scale(0.6, 3, 0.6)), vec3(-4, 4, 4), 0));
+            this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(1,1,0,1)}), vec3(1, 1, 1))
+                .emplace(Mat4.translation(...vec3(64, 0, 190)).times(Mat4.scale(3, 3, 0.6)), vec3(-4, 4, 4), 0));
+            this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(0,1,0,1)}), vec3(1, 1, 1))
+               .emplace(Mat4.translation(...vec3(110, 0, 235)).times(Mat4.scale(3.5, 1, 10)), vec3(-4, 4, 4), 0));
+            this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(1,1,0,1)}), vec3(1, 1, 1))
+               .emplace(Mat4.translation(...vec3(95, 0, 300)).times(Mat4.scale(3, 3, 1)), vec3(-4, 4, 4), 0));
+            this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(1,1,0,1)}), vec3(1, 1, 1))
+                .emplace(Mat4.translation(...vec3(85, 0, 300)).times(Mat4.scale(3, 3, 1)), vec3(-4, 4, 4), 0));
+            this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(0,1,0,1)}), vec3(1, 1, 1))
+                .emplace(Mat4.translation(...vec3(140, 0, 400)).times(Mat4.scale(10, 1, 1)), vec3(-4, 4, 4), 0));
+            this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(1,0,1,1)}), vec3(1, 1, 1))
+                 .emplace(Mat4.translation(...vec3(43, 0, 535)).times(Mat4.scale(3, 5, 20)), vec3(-4, 4, 4), 0));
+            this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(1,0,1,1)}), vec3(1, 1, 1))
+                .emplace(Mat4.translation(...vec3(57, 0, 535)).times(Mat4.scale(3, 5, 20)), vec3(-4, 4, 4), 0));
         }
 
 
