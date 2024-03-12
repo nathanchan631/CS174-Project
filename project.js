@@ -34,7 +34,7 @@ export class Project extends Simulation {
         super();
 
         this.shapes = {
-            sphere: new defs.Subdivision_Sphere(6),
+            sphere: new defs.Subdivision_Sphere(3),
             square: new defs.Square(),
             cube: new defs.Cube(),
             text: new Text_Line(50)
@@ -120,6 +120,8 @@ export class Project extends Simulation {
         this.last_reset = 0;
         this.ui_tex = this.textures.pause_menu;
         this.completed = false;
+        this.gravity_value = -1;
+        this.no_gravity_boost = false;
     }
 
     reset() {
@@ -182,7 +184,7 @@ export class Project extends Simulation {
                 .emplace(Mat4.translation(...vec3(0, 0, 0)), vec3(0, 0, 0), 0);
         
         
-        while(this.bodies.length < 16)
+        while(this.bodies.length < 5)
         {
             this.bodies.push(new Body(this.shapes.sphere, this.materials.ball.override({color: color(0,0,1,1)}), vec3(1, 1, 1))
                 .emplace(Mat4.translation(...vec3(-4, 0, 0)), vec3(-4, 4, 4), 0));
@@ -218,7 +220,7 @@ export class Project extends Simulation {
 
 
         // increase movement speed if switching direction (drifting)
-        let movement_speed = .4;
+        let movement_speed = .15;
 
         if (this.left)
             this.user_sphere.linear_velocity[0] += dt * movement_speed * (this.user_sphere.linear_velocity[0] < 0 ? 1.7 : 1);
@@ -233,13 +235,19 @@ export class Project extends Simulation {
             this.user_sphere.linear_velocity[2] -= dt * movement_speed * (this.user_sphere.linear_velocity[2] > 0 ? 1.7 : 1);
 
 
+        if(this.user_sphere.linear_velocity[1] > 0)
+        {
+            this.jump = false;
+        }
         // Gravity on Earth, where 1 unit in world space = 1 meter:
         if (this.jump == true && this.user_sphere.linear_velocity[1] == 0)
         {
-            this.user_sphere.linear_velocity[1] = 6.5;
+            this.user_sphere.linear_velocity[1] = 4.5;
             this.jump = false;
         }
-        this.user_sphere.linear_velocity[1] += dt * -4.5;
+
+
+        this.user_sphere.linear_velocity[1] += dt * this.gravity_value;
 
         // If about to fall through floor, set y velocity to 0
         if (this.user_sphere.center[1] <= this.floor_y && this.user_sphere.linear_velocity[1] < 0 && !this.fallingofflock)
