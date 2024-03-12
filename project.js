@@ -34,7 +34,8 @@ export class Project extends Simulation {
         super();
 
         this.shapes = {
-            sphere: new defs.Subdivision_Sphere(3),
+            sphere: new defs.Subdivision_Sphere(4),
+            asteroid: new defs.Subdivision_Sphere(3),
             square: new defs.Square(),
             cube: new defs.Cube(),
             text: new Text_Line(50)
@@ -122,6 +123,8 @@ export class Project extends Simulation {
         this.completed = false;
         this.gravity_value = -1;
         this.no_gravity_boost = false;
+        this.boost_used_up = false;
+        this.timeoutID;
     }
 
     reset() {
@@ -136,6 +139,13 @@ export class Project extends Simulation {
         this.ui_tex = this.textures.pause_menu;
         this.completed = false;
         this.program_state.animate = true;
+
+        this.no_gravity_boost = false;
+        this.boost_used_up = false;
+        if(this.timeOutID != null)
+        {
+            clearTimeout(this.timeoutID);
+        }
     }
 
     make_control_panel() {
@@ -186,10 +196,6 @@ export class Project extends Simulation {
         
         while(this.bodies.length < 5)
         {
-            this.bodies.push(new Body(this.shapes.sphere, this.materials.ball.override({color: color(0,0,1,1)}), vec3(1, 1, 1))
-                .emplace(Mat4.translation(...vec3(-4, 0, 0)), vec3(-4, 4, 4), 0));
-            this.bodies.push(new Body(this.shapes.sphere, this.materials.ball.override({color: color(0,0,1,1)}), vec3(1, 1, 1))
-                .emplace(Mat4.translation(...vec3(4, 0, 0)), vec3(-4, 40, 4), 0));
             this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(0,1,0,1)}), vec3(1, 1, 1))
                 .emplace(Mat4.translation(...vec3(0, 0, 40)).times(Mat4.scale(10, 1, 2)), vec3(-4, 4, 4), 0));
             this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(0,1,0,1)}), vec3(1, 1, 1))
@@ -218,6 +224,13 @@ export class Project extends Simulation {
                 .emplace(Mat4.translation(...vec3(57, 0, 535)).times(Mat4.scale(3, 5, 20)), vec3(-4, 4, 4), 0));
         }
 
+        while (this.boosts.length < 1  && this.boost_used_up == false)
+        {
+            this.boosts.push(new Body(this.shapes.sphere, this.materials.ball.override({color: color(0,0,1,1)}), vec3(1, 1, 1))
+                .emplace(Mat4.translation(...vec3(-4, 0, 0)), vec3(-4, 4, 4), 0));
+            
+        }
+
 
         // increase movement speed if switching direction (drifting)
         let movement_speed = .15;
@@ -234,11 +247,13 @@ export class Project extends Simulation {
         if (this.back)
             this.user_sphere.linear_velocity[2] -= dt * movement_speed * (this.user_sphere.linear_velocity[2] > 0 ? 1.7 : 1);
 
-
+        
+        //value update right before jump check to counteract latency
         if(this.user_sphere.linear_velocity[1] > 0)
         {
             this.jump = false;
         }
+
         // Gravity on Earth, where 1 unit in world space = 1 meter:
         if (this.jump == true && this.user_sphere.linear_velocity[1] == 0)
         {
@@ -246,8 +261,19 @@ export class Project extends Simulation {
             this.jump = false;
         }
 
-
-        this.user_sphere.linear_velocity[1] += dt * this.gravity_value;
+        if(this.no_gravity_boost == true)
+        {
+            this.timeoutID = setTimeout(() => {
+                this.no_gravity_boost = false;
+                console.log("ended");
+                if (this.timeOUTID != null)
+                clearTimeout(this.timeoutID);
+            }, 5000);
+        }
+        else
+        {
+            this.user_sphere.linear_velocity[1] += dt * this.gravity_value;
+        }
 
         // If about to fall through floor, set y velocity to 0
         if (this.user_sphere.center[1] <= this.floor_y && this.user_sphere.linear_velocity[1] < 0 && !this.fallingofflock)
@@ -277,6 +303,24 @@ export class Project extends Simulation {
             if (this.user_sphere != null && this.user_sphere.check_if_colliding(b, collider))
                 this.reset();
 
+        //if colliding with boost, give no gravity
+        if(this.no_gravity_boost==false)
+        {
+            for (let c of this.boosts)
+            {
+                if (this.user_sphere != null && this.user_sphere.check_if_colliding(c, collider))
+                {
+                    if(this.timeOutID != null)
+                        clearTimeout(this.timeOutID);   
+                    this.boost_used_up = true;
+                    this.no_gravity_boost = true;
+                    this.boosts.pop();
+                    console.log("no gravity");
+
+                }
+            }
+
+        }
         // checking if on platform
 
         // this function solves player = backRightVec * x + frontLeftVec * y using Cramer's rule
@@ -316,6 +360,10 @@ export class Project extends Simulation {
             }
 
             // not on any platforms
+            else if (this.no_gravity_boost)
+            {
+
+            }
             else if (!this.platforms.some((platform) => playerOnPlatform(this.user_sphere.center, platform))) {
 
                 this.fallingofflock = true;
@@ -323,7 +371,6 @@ export class Project extends Simulation {
                 setTimeout(() => {
                     this.reset();
                     this.fallingofflock = false;
-
                 }, 500);
             }
         }

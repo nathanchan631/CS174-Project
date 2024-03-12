@@ -21,7 +21,7 @@ export class Simulation extends Scene {
                 console.log("Ball center:", this.user_sphere.center);
             }
         }, 3000); // Log every 3 seconds
-        Object.assign(this, {time_accumulator: 0, time_scale: 1, t: 0, dt: 1 / 100, user_sphere: null, steps_taken: 0, bodies : []});
+        Object.assign(this, {time_accumulator: 0, time_scale: 1, t: 0, dt: 1 / 100, user_sphere: null, steps_taken: 0, bodies : [], boosts: []});
         
         // Make simpler dummy shapes for representing all other shapes during collisions:
         this.colliders = [
@@ -77,6 +77,9 @@ export class Simulation extends Scene {
 
         for (let a of this.bodies)
             a.shape.draw(context, program_state, a.drawn_location, a.material);
+        
+        for (let a of this.boosts)
+            a.shape.draw(context, program_state, a.drawn_location, a.material);
     }
 
     // objects to be blurred. note some objects are drawn both blurred and not blurred
@@ -85,6 +88,9 @@ export class Simulation extends Scene {
             this.user_sphere.shape.draw(context, program_state, this.user_sphere.drawn_location, this.user_sphere.material);
 
         for (let a of this.bodies)
+            a.shape.draw(context, program_state, a.drawn_location, a.material);
+
+        for (let a of this.boosts)
             a.shape.draw(context, program_state, a.drawn_location, a.material);
     }
 
