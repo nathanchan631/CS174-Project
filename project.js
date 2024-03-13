@@ -215,18 +215,19 @@ export class Project extends Simulation {
             this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(1,1,0,1)}), vec3(1, 1, 1))
                 .emplace(Mat4.translation(...vec3(83, 6, 300)).times(Mat4.scale(5, 10, 1)), vec3(-4, 4, 4), 0));
             this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(0,1,0,1)}), vec3(1, 1, 1))
-                .emplace(Mat4.translation(...vec3(140, 0, 400)).times(Mat4.scale(10, 1, 1)), vec3(-4, 4, 4), 0));
+                .emplace(Mat4.translation(...vec3(140, 0, 400)).times(Mat4.scale(10, 4, 1)), vec3(-4, 4, 4), 0));
             this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(1,0,1,1)}), vec3(1, 1, 1))
                  .emplace(Mat4.translation(...vec3(43, 6, 535)).times(Mat4.scale(3, 10, 20)), vec3(-4, 4, 4), 0));
             this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(1,0,1,1)}), vec3(1, 1, 1))
                 .emplace(Mat4.translation(...vec3(57, 6, 535)).times(Mat4.scale(3, 10, 20)), vec3(-4, 4, 4), 0));
         }
 
-        while (this.boosts.length < 1  && this.boost_used_up == false)
+        while (this.boosts.length < 2  && this.boost_used_up == false)
         {
             this.boosts.push(new Body(this.shapes.sphere, this.materials.ball.override({color: color(0,0,1,1)}), vec3(1, 1, 1))
                 .emplace(Mat4.translation(...vec3(-4, 0, 0)), vec3(-4, 4, 4), 0));
-            
+            this.boosts.push(new Body(this.shapes.sphere, this.materials.ball.override({color: color(0,0,1,1)}), vec3(1, 1, 1))
+                .emplace(Mat4.translation(...vec3(140, 0, 380)), vec3(-4, 4, 4), 0));
         }
 
 
