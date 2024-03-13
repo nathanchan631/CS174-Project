@@ -121,10 +121,10 @@ export class Project extends Simulation {
         this.last_reset = 0;
         this.ui_tex = this.textures.pause_menu;
         this.completed = false;
-        this.gravity_value = -1;
+        this.gravity_value = -2;
         this.no_gravity_boost = false;
         this.boost_used_up = false;
-        this.timeoutID;
+        this.timeoutID = [];
     }
 
     reset() {
@@ -142,10 +142,8 @@ export class Project extends Simulation {
 
         this.no_gravity_boost = false;
         this.boost_used_up = false;
-        if(this.timeOutID != null)
-        {
-            clearTimeout(this.timeoutID);
-        }
+        for (let timeout of this.timeoutID)
+            clearTimeout(timeout);
     }
 
     make_control_panel() {
@@ -194,34 +192,34 @@ export class Project extends Simulation {
                 .emplace(Mat4.translation(...vec3(0, 0, 0)), vec3(0, 0, 0), 0);
         
         
-        while(this.bodies.length < 5)
+        while(this.bodies.length == 0)
         {
             this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(0,1,0,1)}), vec3(1, 1, 1))
                 .emplace(Mat4.translation(...vec3(0, 0, 40)).times(Mat4.scale(10, 1, 2)), vec3(-4, 4, 4), 0));
             this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(0,1,0,1)}), vec3(1, 1, 1))
                 .emplace(Mat4.translation(...vec3(0, 0, 70)).times(Mat4.scale(10, 1, 2)), vec3(-4, 4, 4), 0));
             this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(0,1,1,1)}), vec3(1, 1, 1))
-                .emplace(Mat4.translation(...vec3(20, 0, 109)).times(Mat4.scale(1, 10, 4)), vec3(-4, 4, 4), 0));
+                .emplace(Mat4.translation(...vec3(20, 0, 109)).times(Mat4.scale(1, 3, 4)), vec3(-4, 4, 4), 0));
             this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(0,1,1,1)}), vec3(1, 1, 1))
-                .emplace(Mat4.translation(...vec3(20, 0, 131)).times(Mat4.scale(1, 10, 4)), vec3(-4, 4, 4), 0));
+                .emplace(Mat4.translation(...vec3(20, 0, 131)).times(Mat4.scale(1, 3, 4)), vec3(-4, 4, 4), 0));
             this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(1,1,0,1)}), vec3(1, 1, 1))
-                .emplace(Mat4.translation(...vec3(50, 0, 190)).times(Mat4.scale(3, 10, 0.6)), vec3(-4, 4, 4), 0));
+                .emplace(Mat4.translation(...vec3(50, 0, 190)).times(Mat4.scale(3, 3, 0.6)), vec3(-4, 4, 4), 0));
             this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(1,1,0,1)}), vec3(1, 1, 1))
-                .emplace(Mat4.translation(...vec3(57, 0, 190)).times(Mat4.scale(0.6, 10, 0.6)), vec3(-4, 4, 4), 0));
+                .emplace(Mat4.translation(...vec3(57, 0, 190)).times(Mat4.scale(0.6, 3, 0.6)), vec3(-4, 4, 4), 0));
             this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(1,1,0,1)}), vec3(1, 1, 1))
-                .emplace(Mat4.translation(...vec3(64, 0, 190)).times(Mat4.scale(3, 10, 0.6)), vec3(-4, 4, 4), 0));
+                .emplace(Mat4.translation(...vec3(64, 0, 190)).times(Mat4.scale(3, 3, 0.6)), vec3(-4, 4, 4), 0));
             this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(0,1,0,1)}), vec3(1, 1, 1))
                .emplace(Mat4.translation(...vec3(110, 0, 235)).times(Mat4.scale(3.5, 1, 10)), vec3(-4, 4, 4), 0));
             this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(1,1,0,1)}), vec3(1, 1, 1))
-               .emplace(Mat4.translation(...vec3(95, 0, 300)).times(Mat4.scale(3, 10, 1)), vec3(-4, 4, 4), 0));
+               .emplace(Mat4.translation(...vec3(95, 0, 300)).times(Mat4.scale(3, 3, 1)), vec3(-4, 4, 4), 0));
             this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(1,1,0,1)}), vec3(1, 1, 1))
-                .emplace(Mat4.translation(...vec3(85, 0, 300)).times(Mat4.scale(3, 10, 1)), vec3(-4, 4, 4), 0));
+                .emplace(Mat4.translation(...vec3(85, 0, 300)).times(Mat4.scale(3, 3, 1)), vec3(-4, 4, 4), 0));
             this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(0,1,0,1)}), vec3(1, 1, 1))
                 .emplace(Mat4.translation(...vec3(140, 0, 400)).times(Mat4.scale(10, 1, 1)), vec3(-4, 4, 4), 0));
             this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(1,0,1,1)}), vec3(1, 1, 1))
-                 .emplace(Mat4.translation(...vec3(43, 0, 535)).times(Mat4.scale(3, 10, 20)), vec3(-4, 4, 4), 0));
+                 .emplace(Mat4.translation(...vec3(43, 0, 535)).times(Mat4.scale(3, 5, 20)), vec3(-4, 4, 4), 0));
             this.bodies.push(new Body(this.shapes.cube, this.materials.ball.override({color: color(1,0,1,1)}), vec3(1, 1, 1))
-                .emplace(Mat4.translation(...vec3(57, 0, 535)).times(Mat4.scale(3, 10, 20)), vec3(-4, 4, 4), 0));
+                .emplace(Mat4.translation(...vec3(57, 0, 535)).times(Mat4.scale(3, 5, 20)), vec3(-4, 4, 4), 0));
         }
 
         while (this.boosts.length < 1  && this.boost_used_up == false)
@@ -261,19 +259,7 @@ export class Project extends Simulation {
             this.jump = false;
         }
 
-        if(this.no_gravity_boost == true)
-        {
-            this.timeoutID = setTimeout(() => {
-                this.no_gravity_boost = false;
-                console.log("ended");
-                if (this.timeOUTID != null)
-                clearTimeout(this.timeoutID);
-            }, 5000);
-        }
-        else
-        {
-            this.user_sphere.linear_velocity[1] += dt * this.gravity_value;
-        }
+        this.user_sphere.linear_velocity[1] += dt * this.gravity_value * (this.no_gravity_boost ? 0.5 : 1);
 
         // If about to fall through floor, set y velocity to 0
         if (this.user_sphere.center[1] <= this.floor_y && this.user_sphere.linear_velocity[1] < 0 && !this.fallingofflock)
@@ -300,7 +286,7 @@ export class Project extends Simulation {
 
         // collision with obstacles
         for (let b of this.bodies)
-            if (this.user_sphere != null && this.user_sphere.check_if_colliding(b, collider))
+            if (this.user_sphere != null && b.check_if_colliding(this.user_sphere, collider))
                 this.reset();
 
         //if colliding with boost, give no gravity
@@ -308,15 +294,18 @@ export class Project extends Simulation {
         {
             for (let c of this.boosts)
             {
-                if (this.user_sphere != null && this.user_sphere.check_if_colliding(c, collider))
+                if (this.user_sphere != null && c.check_if_colliding(this.user_sphere, collider))
                 {
-                    if(this.timeOutID != null)
-                        clearTimeout(this.timeOutID);   
+                    for (let timeout of this.timeoutID)
+                        clearTimeout(timeout);
+
+                    this.timeoutID.push(setTimeout(() => {
+                        this.no_gravity_boost = false;
+                    }, 5000));
+                                        
                     this.boost_used_up = true;
                     this.no_gravity_boost = true;
                     this.boosts.pop();
-                    console.log("no gravity");
-
                 }
             }
 
@@ -359,11 +348,6 @@ export class Project extends Simulation {
                 this.completed = true;
             }
 
-            // not on any platforms
-            else if (this.no_gravity_boost)
-            {
-
-            }
             else if (!this.platforms.some((platform) => playerOnPlatform(this.user_sphere.center, platform))) {
 
                 this.fallingofflock = true;

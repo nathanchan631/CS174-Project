@@ -28,6 +28,12 @@ export class Body {
         // drawn_location gets replaced with an interpolated quantity:
         this.drawn_location = location_matrix;
         this.temp_matrix = Mat4.identity();
+
+        // cache inverse location
+        // only trust this result if object isn't moved outside this function
+        // otherwise have to recompute yourself
+        this.inverse = Mat4.inverse(location_matrix);
+
         return Object.assign(this, {linear_velocity, angular_velocity, spin_axis})
     }
 

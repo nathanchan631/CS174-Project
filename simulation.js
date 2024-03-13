@@ -16,16 +16,16 @@ export class Simulation extends Scene {
     constructor() {
         super();
 
-        setInterval(() => {
-            if (this.user_sphere != null) {
-                console.log("Ball center:", this.user_sphere.center);
-            }
-        }, 3000); // Log every 3 seconds
+        // setInterval(() => {
+        //     if (this.user_sphere != null) {
+        //         console.log("Ball center:", this.user_sphere.center);
+        //     }
+        // }, 3000); // Log every 3 seconds
         Object.assign(this, {time_accumulator: 0, time_scale: 1, t: 0, dt: 1 / 100, user_sphere: null, steps_taken: 0, bodies : [], boosts: []});
         
         // Make simpler dummy shapes for representing all other shapes during collisions:
         this.colliders = [
-            {intersect_test: Body.intersect_sphere, points: new defs.Subdivision_Sphere(2), leeway: .1},
+            {intersect_test: Body.intersect_sphere, points: new defs.Subdivision_Sphere(4), leeway: .1},
             {intersect_test: Body.intersect_cube, points: new defs.Cube(), leeway: .1}
         ];
         this.collider_selection = 0;
