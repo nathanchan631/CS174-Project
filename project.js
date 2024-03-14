@@ -173,10 +173,10 @@ export class Project extends Simulation {
         // this.live_string(box => {
         //     box.textContent = "Time scale: " + this.time_scale
         // });
-        // this.new_line();
-        // this.live_string(box => {
-        //     box.textContent = "Fixed simulation time step size: " + this.dt
-        // });
+        this.new_line();
+        this.live_string(box => {
+            box.textContent = "Instructions: Follow the path to get to the end. Avoid obstacles, but grab the purple sphere boost which lessens the gravity for 5 seconds."
+        });
         // this.new_line();
         // this.live_string(box => {
         //     box.textContent = this.steps_taken + " timesteps were taken so far."
